@@ -519,6 +519,14 @@ char* getIoctlAsString(int cmdNo) {
 		case 0x843: return "ZFS_IOC_BOOKMARK";
 		case 0x844: return "ZFS_IOC_GET_BOOKMARKS";
 		case 0x845: return "ZFS_IOC_DESTROY_BOOKMARKS";
+		case 0x846: return "ZFS_IOC_LOAD_KEY";
+		case 0x847: return "ZFS_IOC_UNLOAD_KEY";
+		case 0x848: return "ZFS_IOC_CHANGE_KEY";
+		case 0x849: return "ZFS_IOC_REMAP";
+		case 0x84a: return "ZFS_IOC_POOL_CHECKPOINT";
+		case 0x84b: return "ZFS_IOC_POOL_DISCARD_CHECKPOINT";
+		case 0x84c: return "ZFS_IOC_POOL_INITIALIZE";
+		case 0x84d: return "ZFS_IOC_CHANNEL_PROGRAM";
 
 		case 0x880: return "ZFS_IOC_EVENTS_NEXT";
 		case 0x881: return "ZFS_IOC_EVENTS_CLEAR";
