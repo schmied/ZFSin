@@ -67,13 +67,11 @@
 #define	JMP_BUF_CNT	1
 #endif
 
-typedef	struct _label_t { long long unsigned val[JMP_BUF_CNT]; } label_t;
+/* Windows has setjmp built in, so lets just use it */
+typedef jmp_buf label_t;
 
-//extern int setjmp(label_t *);
-//__declspec(noreturn) void longjmp(label_t *);
-
-#define LUAI_THROW(L,c)		longjmp(&(c)->b, 0)
-#define LUAI_TRY(L,c,a)		if (setjmp(&(c)->b) == 0) { a }
+#define LUAI_THROW(L,c)		longjmp((c)->b, 1)
+#define LUAI_TRY(L,c,a)		if (setjmp((c)->b) == 0) { a }
 #define luai_jmpbuf		label_t
 
 
@@ -177,6 +175,7 @@ int luaD_rawrunprotected (lua_State *L, Pfunc f, void *ud) {
   lj.status = LUA_OK;
   lj.previous = L->errorJmp;  /* chain new error handler */
   L->errorJmp = &lj;
+
   LUAI_TRY(L, &lj,
     (*f)(L, ud);
   );

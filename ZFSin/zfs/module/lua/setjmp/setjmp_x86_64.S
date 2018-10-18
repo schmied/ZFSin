@@ -32,7 +32,7 @@
  */
 #ifdef __x86_64__
 
-	ENTRY(setjmp)
+	ENTRY(zfssetjmp)
 	movq	%rsp, 0(%rdi)
 	movq	%rbp, 8(%rdi)
 	movq	%rbx, 16(%rdi)
@@ -44,9 +44,9 @@
 	movq	%rdx, 56(%rdi)		/* rip */
 	xorl	%eax, %eax		/* return 0 */
 	ret
-	SET_SIZE(setjmp)
+	SET_SIZE(zfssetjmp)
 
-	ENTRY(longjmp)
+	ENTRY(zfslongjmp)
 	movq	0(%rdi), %rsp
 	movq	8(%rdi), %rbp
 	movq	16(%rdi), %rbx
@@ -59,7 +59,7 @@
 	xorl	%eax, %eax
 	incl	%eax			/* return 1 */
 	ret
-	SET_SIZE(longjmp)
+	SET_SIZE(zfslongjmp)
 
 #ifdef __ELF__
 .section .note.GNU-stack,"",%progbits
