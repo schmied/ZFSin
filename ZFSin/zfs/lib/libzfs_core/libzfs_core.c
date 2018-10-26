@@ -86,7 +86,7 @@
 #include <sys/stat.h>
 #include <sys/zfs_ioctl.h>
 
-static int g_fd = -1;
+static HANDLE g_fd = INVALID_HANDLE_VALUE;
 static pthread_mutex_t g_lock = PTHREAD_MUTEX_INITIALIZER;
 static int g_refcount;
 
@@ -99,7 +99,7 @@ libzfs_core_init(void)
 		g_fd = CreateFile("\\\\.\\ZFS", GENERIC_READ | GENERIC_WRITE,
 			0, NULL, OPEN_EXISTING, 0, NULL);
 
-		if (g_fd == STATUS_INVALID_HANDLE) {
+		if (g_fd == INVALID_HANDLE_VALUE) {
 			(void) pthread_mutex_unlock(&g_lock);
 			return (errno);
 		}
@@ -118,10 +118,10 @@ libzfs_core_fini(void)
 	if (g_refcount > 0)
 		g_refcount--;
 
-	if (g_refcount == 0 && g_fd != -1) {
+	if (g_refcount == 0 && g_fd != INVALID_HANDLE_VALUE) {
 		//(void) close(g_fd);
 		(void)CloseHandle(g_fd);
-		g_fd = -1;
+		g_fd = INVALID_HANDLE_VALUE;
 	}
 	(void) pthread_mutex_unlock(&g_lock);
 }
@@ -697,7 +697,7 @@ recv_impl(const char *snapname, nvlist_t *props, const char *origin,
 	zc.zc_resumable = resumable;
 
 	/* zc_cleanup_fd is unused */
-	zc.zc_cleanup_fd = -1;
+	zc.zc_cleanup_fd = INVALID_HANDLE_VALUE;
 
 	error = ioctl(g_fd, ZFS_IOC_RECV, &zc);
 	if (error != 0)

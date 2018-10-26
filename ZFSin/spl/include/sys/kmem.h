@@ -72,9 +72,9 @@ extern uint64_t physmem;
 #define kmem_zalloc(size, kmflags)  zfs_kmem_zalloc((size), (kmflags))
 #define kmem_free(buf, size)        zfs_kmem_free((buf), (size))
 
-    void* zfs_kmem_alloc(uint32_t size, int kmflags);
-    void* zfs_kmem_zalloc(uint32_t size, int kmflags);
-    void zfs_kmem_free(void *buf, uint32_t size);
+    void* zfs_kmem_alloc(size_t size, int kmflags);
+    void* zfs_kmem_zalloc(size_t size, int kmflags);
+    void zfs_kmem_free(void *buf, size_t size);
 
     void spl_kmem_init(uint64_t);
     void spl_kmem_thread_init();
@@ -82,10 +82,10 @@ extern uint64_t physmem;
 	void spl_kmem_thread_fini();
 	void spl_kmem_fini();
 
-    uint32_t kmem_size(void);
-    uint32_t kmem_used(void);
+    size_t kmem_size(void);
+    size_t kmem_used(void);
     int64_t kmem_avail(void);
-    uint32_t kmem_num_pages_wanted();
+    size_t kmem_num_pages_wanted();
 	int	spl_vm_pool_low(void);
   int32_t spl_minimal_physmem_p(void);
   int64_t spl_adjust_pressure(int64_t);
@@ -122,7 +122,7 @@ extern uint64_t physmem;
 #define POINTER_IS_VALID(p)     (!((uintptr_t)(p) & 0x3))
 #define POINTER_INVALIDATE(pp)  (*(pp) = (void *)((uintptr_t)(*(pp)) | 0x1))
 
-    kmem_cache_t *kmem_cache_create(char *name, uint32_t bufsize, uint32_t align,
+    kmem_cache_t *kmem_cache_create(char *name, size_t bufsize, size_t align,
                                     int (*constructor)(void *, void *, int),
 									void (*destructor)(void *, void *),
                                     void (*reclaim)(void *),
@@ -139,16 +139,16 @@ extern uint64_t physmem;
 
     int kmem_debugging(void);
     void kmem_cache_set_move(kmem_cache_t *,
-                             kmem_cbrc_t (*)(void *, void *, uint32_t, void *));
+                             kmem_cbrc_t (*)(void *, void *, size_t, void *));
 
-  //  void *calloc(uint32_t n, uint32_t s);
+  //  void *calloc(size_t n, size_t s);
     char *kmem_asprintf(const char *fmt, ...);
     void strfree(char *str);
     char *kmem_vasprintf(const char *fmt, va_list ap);
 	char *kmem_strstr(const char *in, const char *str);
-	void strident_canon(char *s, uint32_t n);
+	void strident_canon(char *s, size_t n);
 
-	boolean_t spl_arc_no_grow(uint32_t, boolean_t, kmem_cache_t **);
+	boolean_t spl_arc_no_grow(size_t, boolean_t, kmem_cache_t **);
 
 #ifdef	__cplusplus
 }

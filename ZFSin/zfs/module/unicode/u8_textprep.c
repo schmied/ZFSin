@@ -337,7 +337,7 @@ const uint8_t u8_valid_max_2nd_byte[0x100] = {
  * specific to UTF-8 and Unicode.
  */
 int
-u8_validate(char *u8str, uint32_t n, char **list, int flag, int *errnum)
+u8_validate(char *u8str, size_t n, char **list, int flag, int *errnum)
 {
 	uchar_t *ib;
 	uchar_t *ibtail;
@@ -1232,7 +1232,7 @@ TRY_THE_NEXT_MARK:
 				goto SAVE_THE_CHAR;
 			}
 
-			saved_marks[saved_marks_count++] = i;
+			saved_marks[saved_marks_count++] = (uint8_t)i;
 		}
 
 		if (saved_l == l) {
@@ -1498,8 +1498,8 @@ collect_a_seq(uint32_t uv, uchar_t *u8s, uchar_t **source, uchar_t *slast,
 
 				comb_class[last] = combining_class(uv,
 				    u8s + i, sz);
-				start[last] = i;
-				disp[last] = sz;
+				start[last] = (uchar_t)i;
+				disp[last] = (uchar_t)sz;
 
 				last++;
 				i += sz;
@@ -1601,7 +1601,7 @@ COLLECT_A_HANGUL:
 TURN_STREAM_SAFE:
 					*state = U8_STATE_START;
 					comb_class[last] = 0;
-					start[last] = saved_sz;
+					start[last] = (uchar_t)saved_sz;
 					disp[last] = 2;
 					last++;
 
@@ -1627,7 +1627,7 @@ TURN_STREAM_SAFE:
 						    combining_class(uv,
 						    uts + j, sz);
 						start[last] = saved_sz + j;
-						disp[last] = sz;
+						disp[last] = (uchar_t)sz;
 
 						last++;
 						if (last >=
@@ -1645,9 +1645,9 @@ TURN_STREAM_SAFE:
 					for (i = 0; i < sz; i++)
 						u8s[saved_sz++] = uts[i];
 				} else {
-					comb_class[last] = i;
-					start[last] = saved_sz;
-					disp[last] = sz;
+					comb_class[last] = (uchar_t)i;
+					start[last] = (uchar_t)saved_sz;
+					disp[last] = (uchar_t)sz;
 					last++;
 
 					for (i = 0; i < sz; i++)
@@ -1844,7 +1844,7 @@ do_norm_compare(uint32_t uv, uchar_t *s1, uchar_t *s2, uint32_t n1, uint32_t n2,
  * can be requested and checked against.
  */
 int
-u8_strcmp(const char *s1, const char *s2, uint32_t n, int flag, uint32_t uv,
+u8_strcmp(const char *s1, const char *s2, size_t n, int flag, size_t uv,
 		int *errnum)
 {
 	int f;
@@ -1914,8 +1914,8 @@ u8_strcmp(const char *s1, const char *s2, uint32_t n, int flag, uint32_t uv,
 }
 
 uint32_t
-u8_textprep_str(char *inarray, uint32_t *inlen, char *outarray, uint32_t *outlen,
-	int flag, uint32_t unicode_version, int *errnum)
+u8_textprep_str(char *inarray, size_t *inlen, char *outarray, size_t *outlen,
+	int flag, size_t unicode_version, int *errnum)
 {
 	int f;
 	int sz;

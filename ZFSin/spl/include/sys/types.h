@@ -71,9 +71,10 @@ typedef unsigned short int uint16_t;
 typedef unsigned long long uid_t;
 typedef unsigned long long gid_t;
 typedef unsigned int pid_t;
-// size_t is 32bit on IllumOS, but 64bit on windows, so changed to uint32_t
+// size_t is biggest INTMAX on platform, so 64bit.
+// ssize_t is signed variant.
 typedef uintptr_t pc_t;
-typedef uint64_t ssize_t;
+typedef int64_t ssize_t;
 typedef uint64_t vm_offset_t;
 typedef uint32_t dev_t;
 #define NGROUPS 16
@@ -215,6 +216,8 @@ typedef struct {
 #pragma warning( disable: 4296 )  // expression is always true
 #pragma error( disable: 4296 )  // expression is always true
 #pragma warning( disable: 4703 )  // potentially uninitialized local pointer variable
+#pragma warning( disable: 4018 ) // signed/unsigned mismatch
+#pragma warning( disable : 4146 ) // unary "-" remains unsigned
 
 #define LINK_MAX                32767   /* max file link count */
 

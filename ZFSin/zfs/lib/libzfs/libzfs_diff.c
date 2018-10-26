@@ -72,7 +72,7 @@ typedef struct differ_info {
 	boolean_t timestamped;
 	uint64_t shares;
 	int zerr;
-	int cleanupfd;
+	HANDLE cleanupfd;
 	int outputfd;
 	int datafd;
 } differ_info_t;
@@ -500,7 +500,7 @@ find_shares_object(differ_info_t *di)
 	(void) strlcpy(fullpath, di->dsmnt, MAXPATHLEN);
 	(void) strlcat(fullpath, ZDIFF_SHARESDIR, MAXPATHLEN);
 
-	if (stat(fullpath, &sb) != 0) {
+	if (_stat64(fullpath, &sb) != 0) {
 		(void) snprintf(di->errbuf, sizeof (di->errbuf),
 		    dgettext(TEXT_DOMAIN, "Cannot stat %s"), fullpath);
 #ifndef __APPLE__

@@ -104,8 +104,9 @@ static uint8_t PADDING[64] = { 0x80, /* all zeros */ };
 /*
  * ROTATE_LEFT rotates x left n bits.
  */
-//#if	defined(__GNUC__) && defined(_LP64)
-#if	defined(_WIN32) && defined(_WIN64)
+// Verify that using the MACROs work on WIN32
+#if	defined(__GNUC__) && defined(_LLP64)
+//#if	defined(_QWIN32) && defined(_QWIN64)
 static inline uint64_t
 ROTATE_LEFT(uint64_t value, uint32_t n)
 {

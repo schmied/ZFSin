@@ -775,7 +775,7 @@ libzfs_module_loaded(const char *module)
 	if (asprintf(&modname, "net.lundman.%s", module) == -1)
 		return (0);
 
-	fp = popen("/usr/sbin/kextstat", "r");
+	fp = _popen("/usr/sbin/kextstat", "r");
 	if (fp == NULL)
 		goto out;
 
@@ -1074,7 +1074,7 @@ zfs_path_to_zhandle(libzfs_handle_t *hdl, char *path, zfs_type_t argtype)
 		return (zfs_open(hdl, path, argtype));
 	}
 
-	if (stat(path, &statbuf) != 0) {
+	if (_stat64(path, &statbuf) != 0) {
 		(void) fprintf(stderr, "%s: %s\n", path, strerror(errno));
 		return (NULL);
 	}

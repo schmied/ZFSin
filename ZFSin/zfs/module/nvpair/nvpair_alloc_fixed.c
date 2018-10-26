@@ -81,7 +81,7 @@ nv_fixed_init(nv_alloc_t *nva, va_list valist)
 }
 
 static void *
-nv_fixed_alloc(nv_alloc_t *nva, uint32_t size)
+nv_fixed_alloc(nv_alloc_t *nva, size_t size)
 {
 	nvbuf_t *nvb = nva->nva_arg;
 	uintptr_t new = nvb->nvb_cur;
@@ -96,7 +96,7 @@ nv_fixed_alloc(nv_alloc_t *nva, uint32_t size)
 
 /*ARGSUSED*/
 static void
-nv_fixed_free(nv_alloc_t *nva, void *buf, uint32_t size)
+nv_fixed_free(nv_alloc_t *nva, void *buf, size_t size)
 {
 	/* don't free memory in the pre-allocated buffer */
 }

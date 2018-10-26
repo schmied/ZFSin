@@ -68,7 +68,7 @@ __assert_c99(const char *expr, const char *file, int line, const char *func)
 static inline int
 assfail(const char *buf, const char *file, int line)
 {
-	__assert(buf, file, line);
+	__assert(buf);
 	return (0);
 }
 

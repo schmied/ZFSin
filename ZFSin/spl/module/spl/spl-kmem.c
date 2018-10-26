@@ -750,7 +750,7 @@ random_get_bytes(uint8_t *ptr, uint32_t len)
  * and takes up at most n bytes.
  */
 void
-strident_canon(char *s, uint32_t n)
+strident_canon(char *s, size_t n)
 {
 	char c;
 	char *end = s + n - 1;
@@ -2658,9 +2658,9 @@ kmem_slab_prefill(kmem_cache_t *cp, kmem_slab_t *sp)
 }
 
 void *
-zfs_kmem_zalloc(uint32_t size, int kmflag)
+zfs_kmem_zalloc(size_t size, int kmflag)
 {
-	uint32_t index;
+	size_t index;
 	void *buf;
 
 	if ((index = ((size - 1) >> KMEM_ALIGN_SHIFT)) < KMEM_ALLOC_TABLE_MAX) {
@@ -2688,9 +2688,9 @@ zfs_kmem_zalloc(uint32_t size, int kmflag)
 }
 
 void *
-zfs_kmem_alloc(uint32_t size, int kmflag)
+zfs_kmem_alloc(size_t size, int kmflag)
 {
-	uint32_t index;
+	size_t index;
 	kmem_cache_t *cp;
 	void *buf;
 
@@ -2735,9 +2735,9 @@ zfs_kmem_alloc(uint32_t size, int kmflag)
 }
 
 void
-zfs_kmem_free(void *buf, uint32_t size)
+zfs_kmem_free(void *buf, size_t size)
 {
-	uint32_t index;
+	size_t index;
 	kmem_cache_t *cp;
 
 	if ((index = (size - 1) >> KMEM_ALIGN_SHIFT) < KMEM_ALLOC_TABLE_MAX) {
@@ -3504,8 +3504,8 @@ kmem_partial_slab_cmp(const void *pp0, const void *pp1)
 kmem_cache_t *
 kmem_cache_create(
 			char *name,		/* descriptive name for this cache */
-			uint32_t bufsize,		/* size of the objects it manages */
-			uint32_t align,		/* required object alignment */
+			size_t bufsize,		/* size of the objects it manages */
+			size_t align,		/* required object alignment */
 			int (*constructor)(void *, void *, int), /* object constructor */
 			void (*destructor)(void *, void *),	/* object destructor */
 			void (*reclaim)(void *), /* memory reclaim callback */
@@ -3514,10 +3514,10 @@ kmem_cache_create(
 			int cflags)		/* cache creation flags */
 {
 	int cpu_seqid;
-	uint32_t chunksize;
+	size_t chunksize;
 	kmem_cache_t *cp;
 	kmem_magtype_t *mtp;
-	uint32_t csize = KMEM_CACHE_SIZE(max_ncpus);
+	size_t csize = KMEM_CACHE_SIZE(max_ncpus);
 
 #ifdef	DEBUG
 	/*
@@ -3865,7 +3865,7 @@ kmem_adjust_reclaim_threshold(kmem_defrag_t *kmd, int direction)
 
 void
 kmem_cache_set_move(kmem_cache_t *cp,
-					kmem_cbrc_t (*move)(void *, void *, uint32_t, void *))
+					kmem_cbrc_t (*move)(void *, void *, size_t, void *))
 {
 	kmem_defrag_t *defrag;
 
@@ -3958,7 +3958,7 @@ kmem_cache_destroy(kmem_cache_t *cp)
 	cp->cache_constructor = (int (*)(void *, void *, int))1;
 	cp->cache_destructor = (void (*)(void *, void *))2;
 	cp->cache_reclaim = (void (*)(void *))3;
-	cp->cache_move = (kmem_cbrc_t (*)(void *, void *, uint32_t, void *))4;
+	cp->cache_move = (kmem_cbrc_t (*)(void *, void *, size_t, void *))4;
 	mutex_exit(&cp->cache_lock);
 
 	kstat_delete(cp->cache_kstat);
@@ -6461,7 +6461,7 @@ kmem_cache_scan(kmem_cache_t *cp)
 // ===============================================================
 
 
-uint32_t
+size_t
 kmem_size(void)
 {
 	return ((uint32_t)total_memory); // smd

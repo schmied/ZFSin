@@ -779,14 +779,14 @@ zfs_zevent_destroy(zfs_zevent_t *ze)
  */
 /* ARGSUSED */
 static void *
-i_fm_alloc(nv_alloc_t *nva, uint32_t size)
+i_fm_alloc(nv_alloc_t *nva, size_t size)
 {
 	return (kmem_zalloc(size, KM_SLEEP));
 }
 
 /* ARGSUSED */
 static void
-i_fm_free(nv_alloc_t *nva, void *buf, uint32_t size)
+i_fm_free(nv_alloc_t *nva, void *buf, size_t size)
 {
 	kmem_free(buf, size);
 }

@@ -413,7 +413,7 @@ aes_encrypt(crypto_ctx_t *ctx, crypto_data_t *plaintext,
 	int ret = CRYPTO_FAILED;
 
 	aes_ctx_t *aes_ctx;
-	uint32_t saved_length, saved_offset, length_needed;
+	size_t saved_length, saved_offset, length_needed;
 
 	ASSERT(ctx->cc_provider_private != NULL);
 	aes_ctx = ctx->cc_provider_private;
@@ -819,7 +819,7 @@ aes_encrypt_final(crypto_ctx_t *ctx, crypto_data_t *data,
 			return (ret);
 		}
 	} else if (aes_ctx->ac_flags & (GCM_MODE|GMAC_MODE)) {
-		uint32_t saved_offset = data->cd_offset;
+		size_t saved_offset = data->cd_offset;
 
 		ret = gcm_encrypt_final((gcm_ctx_t *)aes_ctx, data,
 		    AES_BLOCK_LEN, aes_encrypt_block, aes_copy_block,

@@ -575,8 +575,11 @@ void uuid_generate_random(uuid_t out)
 static int have_random_source(void)
 {
 	struct _stat64 s;
-
+#ifdef _WIN32
+	return 1;
+#else
 	return (!stat("/dev/random", &s) || !stat("/dev/urandom", &s));
+#endif
 }
 
 

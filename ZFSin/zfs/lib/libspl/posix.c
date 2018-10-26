@@ -194,7 +194,7 @@ int fstat_blk(int fd, struct _stat64 *st)
 	HANDLE handle;
 	DWORD len;
 
-	handle = _get_osfhandle(fd);
+	handle = (HANDLE)_get_osfhandle(fd);
 	if (!DeviceIoControl(handle, IOCTL_DISK_GET_DRIVE_GEOMETRY_EX, NULL, 0,
 		&geometry_ex, sizeof(geometry_ex), &len, NULL))
 		return -1;
@@ -224,7 +224,7 @@ int statfs(const char *path, struct statfs *buf)
 	DWORD len;
 
 	int fd = open(path, O_RDONLY | O_BINARY);
-	handle = _get_osfhandle(fd);
+	handle = (HANDLE)_get_osfhandle(fd);
 	if (!DeviceIoControl(handle, IOCTL_DISK_GET_DRIVE_GEOMETRY_EX, NULL, 0,
 		&geometry_ex, sizeof(geometry_ex), &len, NULL))
 		return -1;
@@ -341,6 +341,7 @@ int usleep(__int64 usec)
 	SetWaitableTimer(timer, &ft, 0, NULL, NULL, 0);
 	WaitForSingleObject(timer, INFINITE);
 	CloseHandle(timer);
+	return 0;
 }
 
 boolean_t nanosleep(int64_t ns) 
@@ -675,7 +676,7 @@ struct passwd *getpwuid(uid_t uid)
 
 const char *win_ctime_r(char *buffer, uint32_t bufsize, time_t cur_time)
 {
-	errno_t e = ctime_s(buffer, bufsize, cur_time);
+	errno_t e = ctime_s((char * const)buffer, bufsize, (const time_t *)cur_time);
 	return buffer;
 }
 

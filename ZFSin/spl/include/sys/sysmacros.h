@@ -186,7 +186,6 @@ extern void spl_cleanup(void);
  * For some reason Windows makes some of these signed, and everything goes to hell.
  * But may have put in too many (uint64_t), check this
  */
-#pragma warning( disable : 4146 )
 #define P2ALIGN(x, align)	(((uint64_t)x) & -((uint64_t)align))
 #define P2CROSS(x, y, align)	((((uint64_t)x) ^ ((uint64_t)y)) > ((uint64_t)align) - 1)
 #define P2ROUNDUP(x, align)	(-(-((uint64_t)x) & -((uint64_t)align)))

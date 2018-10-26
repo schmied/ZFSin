@@ -75,7 +75,7 @@ struct dbuf_hold_impl_data {
 	dbuf_dirty_record_t *dh_dr;
 	int dh_depth;
 };
-#pragma pack(0)
+#pragma pack()
 
 static void __dbuf_hold_impl_init(struct dbuf_hold_impl_data *dh,
     dnode_t *dn, uint8_t level, uint64_t blkid, boolean_t fail_sparse,
@@ -302,7 +302,7 @@ dbuf_hash_insert(dmu_buf_impl_t *db)
 	dbuf_hash_table_t *h = &dbuf_hash_table;
 	objset_t *os = db->db_objset;
 	uint64_t obj = db->db.db_object;
-	int level = db->db_level;
+	uint8_t level = db->db_level;
 	uint64_t blkid = db->db_blkid;
 	uint64_t hv = dbuf_hash(os, obj, level, blkid);
 	uint64_t idx = hv & h->hash_table_mask;
@@ -978,11 +978,11 @@ dbuf_loan_arcbuf(dmu_buf_impl_t *db)
 	ASSERT(db->db_blkid != DMU_BONUS_BLKID);
 	mutex_enter(&db->db_mtx);
 	if (arc_released(db->db_buf) || refcount_count(&db->db_holds) > 1) {
-		int blksz = db->db.db_size;
+		size_t blksz = db->db.db_size;
 		spa_t *spa = db->db_objset->os_spa;
 
 		mutex_exit(&db->db_mtx);
-		abuf = arc_loan_buf(spa, B_FALSE, blksz);
+		abuf = arc_loan_buf(spa, B_FALSE, (int)blksz);
 		bcopy(db->db.db_data, abuf->b_data, blksz);
 	} else {
 		abuf = db->db_buf;
@@ -3124,7 +3124,7 @@ dbuf_add_ref(dmu_buf_impl_t *db, void *tag)
 	VERIFY(refcount_add(&db->db_holds, tag) > 1);
 }
 
-#pragma weak dmu_buf_try_add_ref = dbuf_try_add_ref
+//#pragma weak dmu_buf_try_add_ref = dbuf_try_add_ref
 boolean_t
 dbuf_try_add_ref(dmu_buf_t *db_fake, objset_t *os, uint64_t obj, uint64_t blkid,
     void *tag)

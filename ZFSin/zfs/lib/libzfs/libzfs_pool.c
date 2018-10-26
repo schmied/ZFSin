@@ -672,7 +672,7 @@ zpool_valid_proplist(libzfs_handle_t *hdl, const char *poolname,
 			*slash = '\0';
 
 			if (strval[0] != '\0' &&
-			    (stat(strval, &statbuf) != 0 ||
+			    (_stat64(strval, &statbuf) != 0 ||
 			    !S_ISDIR(statbuf.st_mode))) {
 				zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
 				    "'%s' is not a valid directory"),
@@ -2612,21 +2612,22 @@ zpool_get_physpath(zpool_handle_t *zhp, char *physpath, size_t phypath_size)
  * can block ZFS from accessing the device. This function allows limited retries
  * in order to work around this behavior.
  */
-static int
+static HANDLE
 zpool_open_delay(int timeout, const char *path, int oflag)
 {
-	int i = 0, fd;
+	int i = 0;
+	HANDLE fd;
 
 	if (path[0] == '#') {
 		uint64_t offset;
 		uint64_t len;
 		char *end = NULL;
 
-		end = path;
+		end = (char *)path;
 		while (end && *end == '#') end++;
-		offset = strtoull(end, &end, 10);
+		offset = strtoull((const char *)end, &end, 10);
 		while (end && *end == '#') end++;
-		len = strtoull(end, &end, 10);
+		len = strtoull((const char *)end, &end, 10);
 		while (end && *end == '#') end++;
 		fd = CreateFile(end,
 			oflag & O_RDWR ? GENERIC_READ | GENERIC_WRITE : GENERIC_READ,
@@ -2667,7 +2668,8 @@ zpool_open_delay(int timeout, const char *path, int oflag)
 static int
 zpool_relabel_disk(libzfs_handle_t *hdl, const char *path, const char *msg)
 {
-	int fd, error;
+	HANDLE fd;
+	int error;
 
 	if ((fd = zpool_open_delay(10, path, O_RDWR|O_DIRECT|O_SHLOCK)) < 0) {
 		zfs_error_aux(hdl, dgettext(TEXT_DOMAIN, "cannot "
@@ -2684,7 +2686,7 @@ zpool_relabel_disk(libzfs_handle_t *hdl, const char *path, const char *msg)
 	 * The module will do it for us in vdev_disk_open().
 	 */
 	error = efi_use_whole_disk(fd);
-	(void) close(fd);
+	(void) CloseHandle(fd);
 	if (error && error != VT_ENOSPC) {
 		zfs_error_aux(hdl, dgettext(TEXT_DOMAIN, "cannot "
 		    "relabel '%s': unable to read disk capacity"), path);
@@ -3699,7 +3701,7 @@ devid_to_path(char *devid_str)
 static char *
 path_to_devid(const char *path)
 {
-	int fd;
+	HANDLE fd;
 	ddi_devid_t devid;
 	char *minor, *ret;
 
@@ -3715,7 +3717,7 @@ path_to_devid(const char *path)
 			devid_str_free(minor);
 		devid_free(devid);
 	}
-	(void) close(fd);
+	(void) CloseHandle(fd);
 
 	return (ret);
 }
@@ -4276,7 +4278,7 @@ zpool_get_history(zpool_handle_t *zhp, nvlist_t **nvhisp)
  */
 int
 zpool_events_next(libzfs_handle_t *hdl, nvlist_t **nvp,
-    int *dropped, unsigned flags, int zevent_fd)
+    int *dropped, unsigned flags, HANDLE zevent_fd)
 {
 	zfs_cmd_t zc = {"\0"};
 	int error = 0;
@@ -4363,7 +4365,7 @@ zpool_events_clear(libzfs_handle_t *hdl, int *count)
  * otherwise -1 is returned and hdl->libzfs_error is set to the errno.
  */
 int
-zpool_events_seek(libzfs_handle_t *hdl, uint64_t eid, int zevent_fd)
+zpool_events_seek(libzfs_handle_t *hdl, uint64_t eid, HANDLE zevent_fd)
 {
 	zfs_cmd_t zc = {"\0"};
 	int error = 0;
@@ -4453,7 +4455,7 @@ static int
 read_efi_label(nvlist_t *config, diskaddr_t *sb)
 {
 	char *path;
-	int fd;
+	HANDLE fd;
 	char diskname[MAXPATHLEN];
 	int err = -1;
 
@@ -4470,7 +4472,7 @@ read_efi_label(nvlist_t *config, diskaddr_t *sb)
 				*sb = vtoc->efi_parts[0].p_start;
 			efi_free(vtoc);
 		}
-		(void) close(fd);
+		(void) CloseHandle(fd);
 	}
 	return (err);
 }
@@ -4524,7 +4526,7 @@ zpool_label_disk_wait(char *path, int timeout)
 		usleep(1000);
 
 		errno = 0;
-		if ((stat(path, &statbuf) == 0) && (errno == 0))
+		if ((_stat64(path, &statbuf) == 0) && (errno == 0))
 			return (0);
 	}
 
@@ -4535,7 +4537,8 @@ int
 zpool_label_disk_check(char *path)
 {
 	struct dk_gpt *vtoc;
-	int fd, err;
+	HANDLE fd;
+	int err;
 
 	if ((fd = zpool_open_delay(10, path, O_RDWR|O_DIRECT)) < 0)
 		return (errno);
@@ -4577,7 +4580,8 @@ zpool_label_disk(libzfs_handle_t *hdl, zpool_handle_t *zhp, const char *name)
 {
 	char path[MAXPATHLEN];
 	struct dk_gpt *vtoc;
-	int rval, fd;
+	int rval;
+	HANDLE fd;
 	size_t resv = EFI_MIN_RESV_SIZE;
 	uint64_t slice_size;
 	diskaddr_t start_block;

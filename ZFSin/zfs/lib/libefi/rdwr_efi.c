@@ -170,7 +170,7 @@ int efi_debug = 1;
 int efi_debug = 0;
 #endif
 
-static int efi_read(int, struct dk_gpt *);
+static int efi_read(HANDLE, struct dk_gpt *);
 
 /*
  * Return a 32-bit CRC of the contents of the buffer.  Pre-and-post
@@ -456,7 +456,7 @@ efi_alloc_and_init(HANDLE fd, uint32_t nparts, struct dk_gpt **vtoc)
 	if (nparts > MAX_PARTS) {
 		if (efi_debug) {
 			(void) fprintf(stderr,
-			"the maximum number of partitions supported is %lu\n",
+			"the maximum number of partitions supported is %llu\n",
 			    MAX_PARTS);
 		}
 		return (-1);

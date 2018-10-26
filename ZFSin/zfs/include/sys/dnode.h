@@ -361,7 +361,7 @@ int dnode_next_offset(dnode_t *dn, int flags, uint64_t *off,
     int minlvl, uint64_t blkfill, uint64_t txg);
 void dnode_evict_dbufs(dnode_t *dn);
 kmem_cbrc_t
-dnode_move(void *buf, void *newbuf,  uint32_t size, void *arg);
+dnode_move(void *buf, void *newbuf,  size_t size, void *arg);
 void dnode_evict_bonus(dnode_t *dn);
 boolean_t dnode_needs_remap(const dnode_t *dn);
 

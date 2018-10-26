@@ -388,7 +388,7 @@ extern "C" {
 		int					(*cache_constructor)(void *, void *, int);
 		void				(*cache_destructor)(void *, void *);
 		void				(*cache_reclaim)(void *);
-		kmem_cbrc_t			(*cache_move)(void *, void *, uint32_t, void *);
+		kmem_cbrc_t			(*cache_move)(void *, void *, size_t, void *);
 		void				*cache_private;				/* opaque arg to callbacks */
 		vmem_t				*cache_arena;				/* vmem source for slabs */
 		int					cache_cflags;				/* cache creation flags */

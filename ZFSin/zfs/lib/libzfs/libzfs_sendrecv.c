@@ -4307,7 +4307,7 @@ zfs_receive(libzfs_handle_t *hdl, const char *tosnap, nvlist_t *props,
 {
 	char *top_zfs = NULL;
 	int err;
-	int cleanup_fd;
+	HANDLE cleanup_fd;
 	uint64_t action_handle = 0;
 	struct _stat64 sb;
 

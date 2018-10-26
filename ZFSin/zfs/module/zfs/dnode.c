@@ -859,7 +859,7 @@ dnode_move_impl(dnode_t *odn, dnode_t *ndn)
 
 /*ARGSUSED*/
 kmem_cbrc_t
-dnode_move(void *buf, void *newbuf, uint32_t size, void *arg)
+dnode_move(void *buf, void *newbuf, size_t size, void *arg)
 {
 	dnode_t *odn = buf, *ndn = newbuf;
 	objset_t *os;

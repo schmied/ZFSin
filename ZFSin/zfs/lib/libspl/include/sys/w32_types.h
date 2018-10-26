@@ -100,8 +100,13 @@ typedef uint32_t dev_t;
 #define W_OK 2
 #define R_OK 4
 
-#define MAXPATHLEN MAX_PATH
+// There is a collision here, between MAXPATHLEN being 1024 or 260. Which one should it be?
+//#define MAXPATHLEN MAX_PATH
 #define PATH_MAX  MAX_PATH
+
+#define MFSTYPENAMELEN  16
+#define MAXPATHLEN      1024
+#define MNAMELEN        MAXPATHLEN
 
 typedef struct timespec			timestruc_t; /* definition per SVr4 */
 typedef struct timespec			timespec_t;
@@ -171,10 +176,6 @@ int fsync(int);
 
 #define lstat _stat64
 
-#define MFSTYPENAMELEN  16
-#define MAXPATHLEN      1024
-#define MNAMELEN        MAXPATHLEN
-
 #define roundup(x, y)         ((((x) + ((y) - 1)) / (y)) * (y))
 #define howmany(x, y)   ((((x) % (y)) == 0) ? ((x) / (y)) : (((x) / (y)) + 1))
 
@@ -198,5 +199,7 @@ int kobj_get_filesize(struct _buf *file, uint64_t *size);
 #endif
 
 #define strcasecmp _stricmp
+
+extern char *realpath(const char *file_name, char *resolved_name);
 
 #endif

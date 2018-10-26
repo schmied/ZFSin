@@ -407,7 +407,7 @@ typedef struct crypto_object_ops {
 	int (*object_destroy)(crypto_provider_handle_t, crypto_session_id_t,
 	    crypto_object_id_t, crypto_req_handle_t);
 	int (*object_get_size)(crypto_provider_handle_t, crypto_session_id_t,
-	    crypto_object_id_t, uint32_t *, crypto_req_handle_t);
+	    crypto_object_id_t, size_t *, crypto_req_handle_t);
 	int (*object_get_attribute_value)(crypto_provider_handle_t,
 	    crypto_session_id_t, crypto_object_id_t,
 	    crypto_object_attribute_t *, uint_t, crypto_req_handle_t);
@@ -439,9 +439,9 @@ typedef struct crypto_key_ops {
 	    crypto_object_id_t *, crypto_req_handle_t);
 	int (*key_wrap)(crypto_provider_handle_t, crypto_session_id_t,
 	    crypto_mechanism_t *, crypto_key_t *, crypto_object_id_t *,
-	    uchar_t *, uint32_t *, crypto_req_handle_t);
+	    uchar_t *, size_t *, crypto_req_handle_t);
 	int (*key_unwrap)(crypto_provider_handle_t, crypto_session_id_t,
-	    crypto_mechanism_t *, crypto_key_t *, uchar_t *, uint32_t *,
+	    crypto_mechanism_t *, crypto_key_t *, uchar_t *, size_t *,
 	    crypto_object_attribute_t *, uint_t,
 	    crypto_object_id_t *, crypto_req_handle_t);
 	int (*key_derive)(crypto_provider_handle_t, crypto_session_id_t,

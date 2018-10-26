@@ -101,12 +101,19 @@ typedef struct pool_list {
 static char *
 get_devid(const char *path)
 {
-	int fd;
+	HANDLE fd;
 	ddi_devid_t devid;
 	char *minor, *ret;
 
-	if ((fd = open(path, O_RDONLY)) < 0)
-		return (NULL);
+	fd = CreateFile(path,
+		GENERIC_READ,
+		FILE_SHARE_READ | FILE_SHARE_WRITE,
+		NULL,
+		OPEN_EXISTING,
+		FILE_ATTRIBUTE_NORMAL /*| FILE_FLAG_OVERLAPPED*/,
+		NULL);
+	if (fd == INVALID_HANDLE_VALUE)
+		return NULL;
 
 	minor = NULL;
 	ret = NULL;
@@ -117,7 +124,7 @@ get_devid(const char *path)
 			devid_str_free(minor);
 		devid_free(devid);
 	}
-	(void) close(fd);
+	(void) CloseHandle(fd);
 
 	return (ret);
 }
@@ -886,7 +893,7 @@ zpool_read_label(int fd, nvlist_t **config, int *num_labels)
 
 	*config = NULL;
 
-	if (fstat(fd, &statbuf) == -1)
+	if (_fstat64(fd, &statbuf) == -1)
 		return (-1);
 
 	size = P2ALIGN_TYPED(statbuf.st_size, sizeof (vdev_label_t), uint64_t);
@@ -1106,7 +1113,7 @@ nozpool_all_slices(avl_tree_t *r, const char *sname)
 }
 
 static void
-check_slices(avl_tree_t *r, int fd, const char *sname)
+check_slices(avl_tree_t *r, HANDLE fd, const char *sname)
 {
 #ifdef sun
 	struct extvtoc vtoc;
@@ -1220,6 +1227,9 @@ void signal_alarm(int foo)
 }
 #endif
 
+/*
+ * Not really used in Windows, see function below.
+ */
 static void
 zpool_open_func(void *arg)
 {
@@ -1327,7 +1337,9 @@ fprintf(stderr, "%s: enter\n", __func__); fflush(stderr);
 		 * Try to read the disk label first so we don't have to
 		 * open a bunch of minor nodes that can't have a zpool.
 		 */
+#ifndef _WIN32
 		check_slices(rn->rn_avl, fd, rn->rn_name);
+#endif
 	}
 
 #ifdef __APPLE__
@@ -1452,10 +1464,10 @@ zpool_open_func_win(void *arg)
 	}
 
 	DWORD type = GetFileType(fd);
-	fprintf(stderr, "device '%s' filetype %d 0x%x\n", rn->rn_name, type);
+	fprintf(stderr, "device '%s' filetype %d 0x%x\n", rn->rn_name, type, type);
 	
 	type = GetDriveType(rn->rn_name);
-	fprintf(stderr, "device '%s' filetype %d 0x%x\n", rn->rn_name, type);
+	fprintf(stderr, "device '%s' filetype %d 0x%x\n", rn->rn_name, type, type);
 	//if ((fd = openat64(rn->rn_dfd, rn->rn_name, O_RDONLY)) < 0) {
 	//	/* symlink to a device that's no longer there */
 	//	if (errno == ENOENT)
@@ -1985,8 +1997,8 @@ zpool_find_import_win(libzfs_handle_t *hdl, importargs_t *iarg)
 							partitions->PartitionEntry[i].PartitionLength.QuadPart); fflush(stderr);
 						break;
 					case PARTITION_STYLE_GPT:
-						fprintf(stderr, "    gpt %d: type %x off 0x%llx len 0x%llx\n", i,
-							partitions->PartitionEntry[i].Gpt.PartitionType,
+						fprintf(stderr, "    gpt %d: guid1 %lx off 0x%llx len 0x%llx\n", i,
+							partitions->PartitionEntry[i].Gpt.PartitionType.Data1,
 							partitions->PartitionEntry[i].StartingOffset.QuadPart,
 							partitions->PartitionEntry[i].PartitionLength.QuadPart); fflush(stderr);
 						break;
@@ -2000,7 +2012,7 @@ zpool_find_import_win(libzfs_handle_t *hdl, importargs_t *iarg)
 
 					// Do the lundman trick
 					snprintf(diskname, sizeof(diskname), "#%llu#%llu#%s",
-						0, GetFileDriveSize(disk), deviceInterfaceDetailData->DevicePath);
+						0ULL, GetFileDriveSize(disk), deviceInterfaceDetailData->DevicePath);
 
 					slice->rn_name = zfs_strdup(hdl, diskname);
 					slice->rn_avl = &slice_cache;
@@ -2237,7 +2249,7 @@ zpool_find_import_cached(libzfs_handle_t *hdl, const char *cachefile,
 		return (NULL);
 	}
 
-	if (fstat(fd, &statbuf) != 0) {
+	if (_fstat64(fd, &statbuf) != 0) {
 		zfs_error_aux(hdl, "%s", strerror(errno));
 		(void) close(fd);
 		(void) zfs_error(hdl, EZFS_BADCACHE,

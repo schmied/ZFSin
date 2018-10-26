@@ -239,7 +239,7 @@ dir_is_empty_stat(const char *dirname)
 	 * We only want to return false if the given path is a non empty
 	 * directory, all other errors are handled elsewhere.
 	 */
-	if (stat(dirname, &st) < 0 || !S_ISDIR(st.st_mode)) {
+	if (_stat64(dirname, &st) < 0 || !S_ISDIR(st.st_mode)) {
 		return (B_TRUE);
 	}
 

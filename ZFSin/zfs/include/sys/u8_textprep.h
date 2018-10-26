@@ -106,9 +106,9 @@ extern int uconv_u8tou32(const uchar_t *, uint32_t *, uint32_t *, uint32_t *, in
 #define	U8_ILLEGAL_CHAR			(-1)
 #define	U8_OUT_OF_RANGE_CHAR		(-2)
 
-extern int u8_validate(char *, uint32_t, char **, int, int *);
-extern int u8_strcmp(const char *, const char *, uint32_t, int, uint32_t, int *);
-extern uint32_t u8_textprep_str(char *, uint32_t *, char *, uint32_t *, int, uint32_t,
+extern int u8_validate(char *, size_t, char **, int, int *);
+extern int u8_strcmp(const char *, const char *, size_t, int, size_t, int *);
+extern uint32_t u8_textprep_str(char *, size_t *, char *, size_t *, int, size_t,
 	int *);
 
 #ifdef	__cplusplus

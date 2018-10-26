@@ -817,7 +817,7 @@ i_get_value_size(data_type_t type, const void *data, uint_t nelem)
 		value_sz = (uint64_t)nelem * sizeof (uint64_t);
 
 		if (data != NULL) {
-			char *const *strs = data;
+			const char* const *strs = data;
 			uint_t i;
 
 			/* no alignment requirement for strings */
@@ -928,7 +928,7 @@ nvlist_add_common(nvlist_t *nvl, const char *name,
 		return (ENOMEM);
 
 	ASSERT(nvp->nvp_size == nvp_sz);
-	nvp->nvp_name_sz = name_sz;
+	nvp->nvp_name_sz = (int16_t)name_sz;
 	nvp->nvp_value_elem = nelem;
 	nvp->nvp_type = type;
 	bcopy(name, NVP_NAME(nvp), name_sz);
@@ -937,7 +937,7 @@ nvlist_add_common(nvlist_t *nvl, const char *name,
 	case DATA_TYPE_BOOLEAN:
 		break;
 	case DATA_TYPE_STRING_ARRAY: {
-		char *const *strs = data;
+		const char *const *strs = data;
 		char *buf = NVP_VALUE(nvp);
 		char **cstrs = (void *)buf;
 
@@ -1632,7 +1632,7 @@ nvlist_lookup_nvpair_ei_sep(nvlist_t *nvl, const char *name, const char sep,
 	char		*idxp, *idxep;
 	nvlist_t	**nva;
 	long		idx = 0;
-	int		n;
+	size_t n;
 
 	if (ip)
 		*ip = -1;			/* not indexed */
@@ -2054,10 +2054,10 @@ typedef struct {
  *     encodes the end detection mark (zeros).
  */
 struct nvs_ops {
-	int (*nvs_nvlist)(nvstream_t *, nvlist_t *, uint32_t *);
-	int (*nvs_nvpair)(nvstream_t *, nvpair_t *, uint32_t *);
+	int (*nvs_nvlist)(nvstream_t *, nvlist_t *, size_t *);
+	int (*nvs_nvpair)(nvstream_t *, nvpair_t *, size_t *);
 	int (*nvs_nvp_op)(nvstream_t *, nvpair_t *);
-	int (*nvs_nvp_size)(nvstream_t *, nvpair_t *, uint32_t *);
+	int (*nvs_nvp_size)(nvstream_t *, nvpair_t *, size_t *);
 	int (*nvs_nvl_fini)(nvstream_t *);
 };
 
@@ -2088,7 +2088,7 @@ static int
 nvs_decode_pairs(nvstream_t *nvs, nvlist_t *nvl)
 {
 	nvpair_t *nvp;
-	uint32_t nvsize;
+	size_t nvsize;
 	int err;
 
 	/*
@@ -2123,12 +2123,12 @@ nvs_decode_pairs(nvstream_t *nvs, nvlist_t *nvl)
 }
 
 static int
-nvs_getsize_pairs(nvstream_t *nvs, nvlist_t *nvl, uint32_t *buflen)
+nvs_getsize_pairs(nvstream_t *nvs, nvlist_t *nvl, size_t *buflen)
 {
 	nvpriv_t *priv = (nvpriv_t *)(uintptr_t)nvl->nvl_priv;
 	i_nvp_t *curr;
 	uint64_t nvsize = *buflen;
-	uint32_t size;
+	size_t size;
 
 	/*
 	 * Get encoded size of nvpairs in nvlist
@@ -2146,7 +2146,7 @@ nvs_getsize_pairs(nvstream_t *nvs, nvlist_t *nvl, uint32_t *buflen)
 }
 
 static int
-nvs_operation(nvstream_t *nvs, nvlist_t *nvl, uint32_t *buflen)
+nvs_operation(nvstream_t *nvs, nvlist_t *nvl, size_t *buflen)
 {
 	int err;
 
@@ -2223,9 +2223,9 @@ nvs_embedded(nvstream_t *nvs, nvlist_t *embedded)
 }
 
 static int
-nvs_embedded_nvl_array(nvstream_t *nvs, nvpair_t *nvp, uint32_t *size)
+nvs_embedded_nvl_array(nvstream_t *nvs, nvpair_t *nvp, size_t *size)
 {
-	uint32_t nelem = NVP_NELEM(nvp);
+	size_t nelem = NVP_NELEM(nvp);
 	nvlist_t **nvlp = EMBEDDED_NVL_ARRAY(nvp);
 	int i;
 
@@ -2237,7 +2237,7 @@ nvs_embedded_nvl_array(nvstream_t *nvs, nvpair_t *nvp, uint32_t *size)
 		break;
 
 	case NVS_OP_DECODE: {
-		uint32_t len = nelem * sizeof (uint64_t);
+		size_t len = nelem * sizeof (uint64_t);
 		nvlist_t *embedded = (nvlist_t *)((uintptr_t)nvlp + len);
 
 		bzero(nvlp, len);	/* don't trust packed data */
@@ -2255,7 +2255,7 @@ nvs_embedded_nvl_array(nvstream_t *nvs, nvpair_t *nvp, uint32_t *size)
 		uint64_t nvsize = 0;
 
 		for (i = 0; i < nelem; i++) {
-			uint32_t nvp_sz = 0;
+			size_t nvp_sz = 0;
 
 			if (nvs_operation(nvs, nvlp[i], &nvp_sz) != 0)
 				return (EINVAL);
@@ -2274,15 +2274,15 @@ nvs_embedded_nvl_array(nvstream_t *nvs, nvpair_t *nvp, uint32_t *size)
 	return (0);
 }
 
-static int nvs_native(nvstream_t *, nvlist_t *, char *, uint32_t *);
-static int nvs_xdr(nvstream_t *, nvlist_t *, char *, uint32_t *);
+static int nvs_native(nvstream_t *, nvlist_t *, char *, size_t *);
+static int nvs_xdr(nvstream_t *, nvlist_t *, char *, size_t *);
 
 /*
  * Common routine for nvlist operations:
  * encode, decode, getsize (encoded size).
  */
 static int
-nvlist_common(nvlist_t *nvl, char *buf, uint32_t *buflen, int encoding,
+nvlist_common(nvlist_t *nvl, char *buf, size_t *buflen, int encoding,
     int nvs_op)
 {
 	int err = 0;
@@ -2312,7 +2312,7 @@ nvlist_common(nvlist_t *nvl, char *buf, uint32_t *buflen, int encoding,
 		if (buf == NULL || *buflen < sizeof (nvs_header_t))
 			return (EINVAL);
 
-		nvh->nvh_encoding = encoding;
+		nvh->nvh_encoding = (char)encoding;
 		nvh->nvh_endian = nvl_endian = host_endian;
 		nvh->nvh_reserved1 = 0;
 		nvh->nvh_reserved2 = 0;
@@ -2365,7 +2365,7 @@ nvlist_common(nvlist_t *nvl, char *buf, uint32_t *buflen, int encoding,
 }
 
 int
-nvlist_size(nvlist_t *nvl, uint32_t *size, int encoding)
+nvlist_size(nvlist_t *nvl, size_t *size, int encoding)
 {
 	return (nvlist_common(nvl, NULL, size, encoding, NVS_OP_GETSIZE));
 }
@@ -2374,7 +2374,7 @@ nvlist_size(nvlist_t *nvl, uint32_t *size, int encoding)
  * Pack nvlist into contiguous memory
  */
 int
-nvlist_pack(nvlist_t *nvl, char **bufp, uint32_t *buflen, int encoding,
+nvlist_pack(nvlist_t *nvl, char **bufp, size_t *buflen, int encoding,
     int kmflag)
 {
 	return (nvlist_xpack(nvl, bufp, buflen, encoding,
@@ -2382,11 +2382,11 @@ nvlist_pack(nvlist_t *nvl, char **bufp, uint32_t *buflen, int encoding,
 }
 
 int
-nvlist_xpack(nvlist_t *nvl, char **bufp, uint32_t *buflen, int encoding,
+nvlist_xpack(nvlist_t *nvl, char **bufp, size_t *buflen, int encoding,
     nv_alloc_t *nva)
 {
 	nvpriv_t nvpriv;
-	uint32_t alloc_size;
+	size_t alloc_size;
 	char *buf;
 	int err;
 
@@ -2432,13 +2432,13 @@ nvlist_xpack(nvlist_t *nvl, char **bufp, uint32_t *buflen, int encoding,
  * Unpack buf into an nvlist_t
  */
 int
-nvlist_unpack(char *buf, uint32_t buflen, nvlist_t **nvlp, int kmflag)
+nvlist_unpack(char *buf, size_t buflen, nvlist_t **nvlp, int kmflag)
 {
 	return (nvlist_xunpack(buf, buflen, nvlp, nvlist_nv_alloc(kmflag)));
 }
 
 int
-nvlist_xunpack(char *buf, uint32_t buflen, nvlist_t **nvlp, nv_alloc_t *nva)
+nvlist_xunpack(char *buf, size_t buflen, nvlist_t **nvlp, nv_alloc_t *nva)
 {
 	nvlist_t *nvl;
 	int err;
@@ -2537,7 +2537,7 @@ native_cp(nvstream_t *nvs, void *buf, uint32_t size)
  * operate on nvlist_t header
  */
 static int
-nvs_native_nvlist(nvstream_t *nvs, nvlist_t *nvl, uint32_t *size)
+nvs_native_nvlist(nvstream_t *nvs, nvlist_t *nvl, size_t *size)
 {
 	nvs_native_t *native = nvs->nvs_private;
 
@@ -2732,13 +2732,13 @@ nvs_native_nvp_op(nvstream_t *nvs, nvpair_t *nvp)
 }
 
 static int
-nvs_native_nvp_size(nvstream_t *nvs, nvpair_t *nvp, uint32_t *size)
+nvs_native_nvp_size(nvstream_t *nvs, nvpair_t *nvp, size_t *size)
 {
 	uint64_t nvp_sz = nvp->nvp_size;
 
 	switch (NVP_TYPE(nvp)) {
 	case DATA_TYPE_NVLIST: {
-		uint32_t nvsize = 0;
+		size_t nvsize = 0;
 
 		if (nvs_operation(nvs, EMBEDDED_NVL(nvp), &nvsize) != 0)
 			return (EINVAL);
@@ -2747,7 +2747,7 @@ nvs_native_nvp_size(nvstream_t *nvs, nvpair_t *nvp, uint32_t *size)
 		break;
 	}
 	case DATA_TYPE_NVLIST_ARRAY: {
-		uint32_t nvsize;
+		size_t nvsize;
 
 		if (nvs_embedded_nvl_array(nvs, nvp, &nvsize) != 0)
 			return (EINVAL);
@@ -2768,7 +2768,7 @@ nvs_native_nvp_size(nvstream_t *nvs, nvpair_t *nvp, uint32_t *size)
 }
 
 static int
-nvs_native_nvpair(nvstream_t *nvs, nvpair_t *nvp, uint32_t *size)
+nvs_native_nvpair(nvstream_t *nvs, nvpair_t *nvp, size_t *size)
 {
 	switch (nvs->nvs_op) {
 	case NVS_OP_ENCODE:
@@ -2816,7 +2816,7 @@ static const nvs_ops_t nvs_native_ops = {
 };
 
 static int
-nvs_native(nvstream_t *nvs, nvlist_t *nvl, char *buf, uint32_t *buflen)
+nvs_native(nvstream_t *nvs, nvlist_t *nvl, char *buf, size_t *buflen)
 {
 	nvs_native_t native;
 	int err;
@@ -2855,10 +2855,10 @@ nvs_native(nvstream_t *nvs, nvlist_t *nvl, char *buf, uint32_t *buflen)
  *  - 2 zero's for end of the entire list (8 bytes)
  */
 static int
-nvs_xdr_create(nvstream_t *nvs, XDR *xdr, char *buf, uint32_t buflen)
+nvs_xdr_create(nvstream_t *nvs, XDR *xdr, char *buf, size_t buflen)
 {
 	/* xdr data must be 4 byte aligned */
-	if ((ulong_t)buf % 4 != 0)
+	if ((uintptr_t)buf % 4 != 0)
 		return (EFAULT);
 
 	switch (nvs->nvs_op) {
@@ -2892,7 +2892,7 @@ nvs_xdr_destroy(nvstream_t *nvs)
 }
 
 static int
-nvs_xdr_nvlist(nvstream_t *nvs, nvlist_t *nvl, uint32_t *size)
+nvs_xdr_nvlist(nvstream_t *nvs, nvlist_t *nvl, size_t *size)
 {
 	switch (nvs->nvs_op) {
 	case NVS_OP_ENCODE:
@@ -2952,7 +2952,7 @@ nvs_xdr_nvp_op(nvstream_t *nvs, nvpair_t *nvp)
 	/* name string */
 	if ((buf = NVP_NAME(nvp)) >= buf_end)
 		return (EFAULT);
-	buflen = buf_end - buf;
+	buflen = (uint_t)(buf_end - buf);
 
 	if (!xdr_string(xdr, &buf, buflen - 1))
 		return (EFAULT);
@@ -2981,7 +2981,7 @@ nvs_xdr_nvp_op(nvstream_t *nvs, nvpair_t *nvp)
 	/* value */
 	if ((buf = NVP_VALUE(nvp)) >= buf_end)
 		return (EFAULT);
-	buflen = buf_end - buf;
+	buflen = (uint_t)(buf_end - buf);
 
 	if (buflen < value_sz)
 		return (EFAULT);
@@ -3121,7 +3121,7 @@ nvs_xdr_nvp_op(nvstream_t *nvs, nvpair_t *nvp)
 }
 
 static int
-nvs_xdr_nvp_size(nvstream_t *nvs, nvpair_t *nvp, uint32_t *size)
+nvs_xdr_nvp_size(nvstream_t *nvs, nvpair_t *nvp, size_t *size)
 {
 	data_type_t type = NVP_TYPE(nvp);
 	/*
@@ -3189,7 +3189,7 @@ nvs_xdr_nvp_size(nvstream_t *nvs, nvpair_t *nvp, uint32_t *size)
 
 	case DATA_TYPE_NVLIST:
 	case DATA_TYPE_NVLIST_ARRAY: {
-		uint32_t nvsize = 0;
+		size_t nvsize = 0;
 		int old_nvs_op = nvs->nvs_op;
 		int err;
 
@@ -3248,14 +3248,14 @@ nvs_xdr_nvp_size(nvstream_t *nvs, nvpair_t *nvp, uint32_t *size)
 					NV_ALIGN4((NVS_XDR_DATA_LEN(x) / 4)))
 
 static int
-nvs_xdr_nvpair(nvstream_t *nvs, nvpair_t *nvp, uint32_t *size)
+nvs_xdr_nvpair(nvstream_t *nvs, nvpair_t *nvp, size_t *size)
 {
 	XDR 	*xdr = nvs->nvs_private;
 	int32_t	encode_len, decode_len;
 
 	switch (nvs->nvs_op) {
 	case NVS_OP_ENCODE: {
-		uint32_t nvsize;
+		size_t nvsize;
 
 		if (nvs_xdr_nvp_size(nvs, nvp, &nvsize) != 0)
 			return (EFAULT);
@@ -3303,7 +3303,7 @@ static const struct nvs_ops nvs_xdr_ops = {
 };
 
 static int
-nvs_xdr(nvstream_t *nvs, nvlist_t *nvl, char *buf, uint32_t *buflen)
+nvs_xdr(nvstream_t *nvs, nvlist_t *nvl, char *buf, size_t *buflen)
 {
 	XDR xdr;
 	int err;

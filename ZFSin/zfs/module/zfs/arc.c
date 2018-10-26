@@ -1295,7 +1295,7 @@ buf_fini(void)
 	int i;
 
 	kmem_free(buf_hash_table.ht_table,
-	    (buf_hash_table.ht_mask + 1) * sizeof (void *));
+	    ((uint32_t)buf_hash_table.ht_mask + 1) * sizeof (void *));
 	for (i = 0; i < BUF_LOCKS; i++)
 		mutex_destroy(&buf_hash_table.ht_locks[i].ht_lock);
 	kmem_cache_destroy(hdr_full_cache);
@@ -1451,7 +1451,7 @@ buf_init(void)
 retry:
 	buf_hash_table.ht_mask = hsize - 1;
 	buf_hash_table.ht_table =
-	    kmem_zalloc(hsize * sizeof (void*), KM_NOSLEEP);
+	    kmem_zalloc((uint32_t)hsize * sizeof (void*), KM_NOSLEEP);
 	if (buf_hash_table.ht_table == NULL) {
 		ASSERT(hsize > (1ULL << 8));
 		hsize >>= 1;
@@ -2057,9 +2057,9 @@ arc_hdr_authenticate(arc_buf_hdr_t *hdr, spa_t *spa, uint64_t dsobj)
 		ASSERT3U(HDR_GET_COMPRESS(hdr), ==, ZIO_COMPRESS_OFF);
 		ASSERT3U(lsize, ==, psize);
 		ret = spa_do_crypt_objset_mac_abd(B_FALSE, spa, dsobj, abd,
-		    psize, hdr->b_l1hdr.b_byteswap != DMU_BSWAP_NUMFUNCS);
+		    (uint_t)psize, hdr->b_l1hdr.b_byteswap != DMU_BSWAP_NUMFUNCS);
 	} else {
-		ret = spa_do_crypt_mac_abd(B_FALSE, spa, dsobj, abd, psize,
+		ret = spa_do_crypt_mac_abd(B_FALSE, spa, dsobj, abd, (uint_t)psize,
 		    hdr->b_crypt_hdr.b_mac);
 	}
 
@@ -2218,7 +2218,7 @@ arc_buf_untransform_in_place(arc_buf_t *buf, kmutex_t *hash_lock)
 	ASSERT3P(hdr->b_l1hdr.b_pabd, !=, NULL);
 
 	zio_crypt_copy_dnode_bonus(hdr->b_l1hdr.b_pabd, buf->b_data,
-	    arc_buf_size(buf));
+	    (uint_t)arc_buf_size(buf));
 	buf->b_flags &= ~ARC_BUF_FLAG_ENCRYPTED;
 	buf->b_flags &= ~ARC_BUF_FLAG_COMPRESSED;
 	hdr->b_crypt_hdr.b_ebufcnt -= 1;
@@ -2567,7 +2567,7 @@ add_reference(arc_buf_hdr_t *hdr, void *tag)
 static int
 remove_reference(arc_buf_hdr_t *hdr, kmutex_t *hash_lock, void *tag)
 {
-	int cnt;
+	uint64_t cnt;
 	arc_state_t *state = hdr->b_l1hdr.b_state;
 
 	ASSERT(HDR_HAS_L1HDR(hdr));
@@ -2584,7 +2584,7 @@ remove_reference(arc_buf_hdr_t *hdr, kmutex_t *hash_lock, void *tag)
 		ASSERT3U(hdr->b_l1hdr.b_bufcnt, >, 0);
 		arc_evictable_space_increment(hdr, state);
 	}
-	return (cnt);
+	return ((int)cnt);
 }
 
 /*
@@ -2860,8 +2860,8 @@ arc_space_return(uint64_t space, arc_space_type_t type)
 		 * because the arc_meta_max value doesn't need to be
 		 * precise. It's only consumed by humans via arcstats.
 		 */
-		if (arc_meta_max < aggsum_upper_bound(&arc_meta_used))
-			arc_meta_max = aggsum_upper_bound(&arc_meta_used);
+		if ((int64_t)arc_meta_max < aggsum_upper_bound(&arc_meta_used))
+			(int64_t)arc_meta_max = aggsum_upper_bound(&arc_meta_used);
 		aggsum_add(&arc_meta_used, -space);
 	}
 
@@ -3415,7 +3415,7 @@ arc_hdr_free_abd(arc_buf_hdr_t *hdr, boolean_t free_rdata)
 }
 
 static arc_buf_hdr_t *
-arc_hdr_alloc(uint64_t spa, int32_t psize, int32_t lsize,
+arc_hdr_alloc(uint64_t spa, uint64_t psize, uint64_t lsize,
     boolean_t protected, enum zio_compress compression_type,
     arc_buf_contents_t type, boolean_t alloc_rdata)
 {
@@ -3429,8 +3429,8 @@ arc_hdr_alloc(uint64_t spa, int32_t psize, int32_t lsize,
 	}
 	ASSERT(HDR_EMPTY(hdr));
 	ASSERT3P(hdr->b_l1hdr.b_freeze_cksum, ==, NULL);
-	HDR_SET_PSIZE(hdr, psize);
-	HDR_SET_LSIZE(hdr, lsize);
+	HDR_SET_PSIZE(hdr, (uint16_t)psize);
+	HDR_SET_LSIZE(hdr, (uint16_t)lsize);
 	hdr->b_spa = spa;
 	hdr->b_type = type;
 	hdr->b_flags = 0;
@@ -5282,7 +5282,7 @@ arc_adapt(int bytes, arc_state_t *state, arc_buf_contents_t type)
 arc_adapt(int bytes, arc_state_t *state)
 #endif
 {
-	int mult;
+	uint64_t mult;
 	uint64_t arc_p_min = (arc_c >> arc_p_min_shift);
 	int64_t mrug_size = refcount_count(&arc_mru_ghost->arcs_size);
 	int64_t mfug_size = refcount_count(&arc_mfu_ghost->arcs_size);
@@ -5301,14 +5301,14 @@ arc_adapt(int bytes, arc_state_t *state)
 	 */
 	if (state == arc_mru_ghost) {
 		mult = (mrug_size >= mfug_size) ? 1 : (mfug_size / mrug_size);
-		mult = MIN(mult, 10); /* avoid wild arc_p adjustment */
+		mult = MIN(mult, 10ULL); /* avoid wild arc_p adjustment */
 
 		arc_p = MIN(arc_c - arc_p_min, arc_p + bytes * mult);
 	} else if (state == arc_mfu_ghost) {
 		uint64_t delta;
 
-		mult = (mfug_size >= mrug_size) ? 1 : (mrug_size / mfug_size);
-		mult = MIN(mult, 10);
+		mult = (mfug_size >= mrug_size) ? 1ULL : (mrug_size / mfug_size);
+		mult = MIN(mult, 10ULL);
 
 		delta = MIN(bytes * mult, arc_p);
 		arc_p = MAX(arc_p_min, arc_p - delta);
@@ -5384,7 +5384,7 @@ arc_adapt(int bytes, arc_state_t *state)
 	// fragmentation or because recently an allocation had to
 	// descend to the bucket arena
 
-	extern boolean_t spl_arc_no_grow(uint32_t, boolean_t, kmem_cache_t **);
+	extern boolean_t spl_arc_no_grow(size_t, boolean_t, kmem_cache_t **);
 	if (arc_no_grow ||
 	    spl_free_manual_pressure_wrapper() > 0 ||
 	    spl_free_wrapper() < (int64_t)bytes) {
@@ -5504,7 +5504,7 @@ arc_get_data_impl(arc_buf_hdr_t *hdr, uint64_t size, void *tag)
 	arc_buf_contents_t type = arc_buf_type(hdr);
 
 #ifdef _WIN32
-	arc_adapt(size, state, type);
+	arc_adapt((int)size, state, type);
 #else
 	arc_adapt(size, state);
 #endif
@@ -5903,7 +5903,7 @@ arc_read_done(zio_t *zio)
 			if (BP_GET_LEVEL(zio->io_bp) > 0) {
 				hdr->b_l1hdr.b_byteswap = DMU_BSWAP_UINT64;
 			} else {
-				hdr->b_l1hdr.b_byteswap =
+				hdr->b_l1hdr.b_byteswap = (uint8_t)
 					DMU_OT_BYTESWAP(BP_GET_TYPE(zio->io_bp));
 			}
 		} else {
@@ -6853,7 +6853,7 @@ arc_write_ready(zio_t *zio)
 			if (BP_GET_LEVEL(bp) > 0) {
 				hdr->b_l1hdr.b_byteswap = DMU_BSWAP_UINT64;
 			} else {
-				hdr->b_l1hdr.b_byteswap =
+				hdr->b_l1hdr.b_byteswap = (uint8_t)
 				    DMU_OT_BYTESWAP(BP_GET_TYPE(bp));
 			}
 		} else {
@@ -6890,7 +6890,7 @@ arc_write_ready(zio_t *zio)
 		ASSERT3U(HDR_GET_LSIZE(hdr), ==, BP_GET_LSIZE(zio->io_bp));
 		compress = BP_GET_COMPRESS(zio->io_bp);
 	}
-	HDR_SET_PSIZE(hdr, psize);
+	HDR_SET_PSIZE(hdr, (uint16_t)psize);
 	arc_hdr_set_compress(hdr, compress);
 
 	if (zio->io_error != 0 || psize == 0)
@@ -7446,12 +7446,12 @@ int arc_kstat_update_osx(kstat_t *ksp, int rw)
 		  dprintf("ZFS: set arc_meta_min %llu\n", arc_meta_min);
 		}
 
-		zfs_arc_grow_retry        = ks->arc_zfs_arc_grow_retry.value.ui64;
+		zfs_arc_grow_retry        = (int)ks->arc_zfs_arc_grow_retry.value.ui64;
         arc_grow_retry = zfs_arc_grow_retry;
 
-		zfs_arc_shrink_shift      = ks->arc_zfs_arc_shrink_shift.value.ui64;
-		zfs_arc_p_min_shift       = ks->arc_zfs_arc_p_min_shift.value.ui64;
-		zfs_arc_average_blocksize = ks->arc_zfs_arc_average_blocksize.value.ui64;
+		zfs_arc_shrink_shift      = (int)ks->arc_zfs_arc_shrink_shift.value.ui64;
+		zfs_arc_p_min_shift       = (int)ks->arc_zfs_arc_p_min_shift.value.ui64;
+		zfs_arc_average_blocksize = (int)ks->arc_zfs_arc_average_blocksize.value.ui64;
 
 	} else {
 
@@ -8674,7 +8674,7 @@ l2arc_apply_transforms(spa_t *spa, arc_buf_hdr_t *hdr, uint64_t asize,
 
 		ret = zio_do_crypt_abd(B_TRUE, &dck->dck_key,
 		    hdr->b_crypt_hdr.b_ot, bswap, hdr->b_crypt_hdr.b_salt,
-		    hdr->b_crypt_hdr.b_iv, mac, psize, to_write, eabd,
+		    hdr->b_crypt_hdr.b_iv, mac, (uint_t)psize, to_write, eabd,
 		    &no_crypt);
 		if (ret != 0)
 			goto error;

@@ -85,7 +85,8 @@ typedef unsigned short umode_t;
 typedef unsigned short mode_t;
 
 
-typedef uint32_t zsize_t;
+// size_t should hold MAX_INT for the platform, here, 64bit
+typedef uint64_t zsize_t;
 #define size_t zsize_t
 
 typedef uint64_t zoff_t;
