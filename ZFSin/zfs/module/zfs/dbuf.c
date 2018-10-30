@@ -1173,14 +1173,14 @@ dbuf_read_impl(dmu_buf_impl_t *db, zio_t *zio, uint32_t flags)
 		arc_buf_contents_t type = DBUF_GET_BUFC_TYPE(db);
 
 		dbuf_set_data(db, arc_alloc_buf(db->db_objset->os_spa, db, type,
-		    db->db.db_size));
+		    (int32_t)db->db.db_size));
 		bzero(db->db.db_data, db->db.db_size);
 
 		if (db->db_blkptr != NULL && db->db_level > 0 &&
 			BP_IS_HOLE(db->db_blkptr) &&
 			db->db_blkptr->blk_birth != 0) {
 			blkptr_t *bps = db->db.db_data;
-			for (int i = 0; i < ((1 <<
+			for (int i = 0; i < ((1ULL <<
 				DB_DNODE(db)->dn_indblkshift) / sizeof (blkptr_t));
 				i++) {
 				blkptr_t *bp = &bps[i];
@@ -1293,7 +1293,7 @@ dbuf_fix_old_data(dmu_buf_impl_t *db, uint64_t txg)
 		bcopy(db->db.db_data, dr->dt.dl.dr_data, DN_MAX_BONUSLEN);
 	} else if (refcount_count(&db->db_holds) > db->db_dirtycnt) {
 		dnode_t *dn = DB_DNODE(db);
-		int size = arc_buf_size(db->db_buf);
+		uint64_t size = arc_buf_size(db->db_buf);
 		arc_buf_contents_t type = DBUF_GET_BUFC_TYPE(db);
 		spa_t *spa = db->db_objset->os_spa;
 		enum zio_compress compress_type =
@@ -1316,7 +1316,7 @@ dbuf_fix_old_data(dmu_buf_impl_t *db, uint64_t txg)
 			dr->dt.dl.dr_data = arc_alloc_compressed_buf(spa, db,
 			    size, arc_buf_lsize(db->db_buf), compress_type);
 		} else {
-			dr->dt.dl.dr_data = arc_alloc_buf(spa, db, type, size);
+			dr->dt.dl.dr_data = arc_alloc_buf(spa, db, type, (int32_t)size);
 		}
 		bcopy(db->db.db_data, dr->dt.dl.dr_data->b_data, size);
 	} else {
@@ -1459,7 +1459,7 @@ dbuf_noread(dmu_buf_impl_t *db)
 
 		ASSERT(db->db_buf == NULL);
 		ASSERT(db->db.db_data == NULL);
-		dbuf_set_data(db, arc_alloc_buf(spa, db, type, db->db.db_size));
+		dbuf_set_data(db, arc_alloc_buf(spa, db, type, (int32_t)db->db.db_size));
 		db->db_state = DB_FILL;
 	} else if (db->db_state == DB_NOFILL) {
 		dbuf_clear_data(db);
@@ -1613,7 +1613,7 @@ void
 dbuf_new_size(dmu_buf_impl_t *db, int size, dmu_tx_t *tx)
 {
 	arc_buf_t *buf, *obuf;
-	int osize = db->db.db_size;
+	int osize = (int)db->db.db_size;
 	arc_buf_contents_t type = DBUF_GET_BUFC_TYPE(db);
 	dnode_t *dn;
 
@@ -1872,7 +1872,7 @@ dbuf_dirty(dmu_buf_impl_t *db, dmu_tx_t *tx)
 		    offsetof(dbuf_dirty_record_t, dr_dirty_node));
 	}
 	if (db->db_blkid != DMU_BONUS_BLKID && os->os_dsl_dataset != NULL)
-		dr->dr_accounted = db->db.db_size;
+		dr->dr_accounted = (uint_t)db->db.db_size;
 	dr->dr_dbuf = db;
 	dr->dr_txg = tx->tx_txg;
 	dr->dr_next = *drp;
@@ -2776,7 +2776,7 @@ dbuf_prefetch(dnode_t *dn, int64_t level, uint64_t blkid, zio_priority_t prio,
 		return;
 
 	dmu_buf_impl_t *db = dbuf_find(dn->dn_objset, dn->dn_object,
-								   level, blkid);
+		(uint8_t)level, blkid);
 	if (db != NULL) {
 		mutex_exit(&db->db_mtx);
 		/*
@@ -2791,14 +2791,14 @@ dbuf_prefetch(dnode_t *dn, int64_t level, uint64_t blkid, zio_priority_t prio,
 	 * that is present in the cache.  In this indirect block, we will
 	 * find the bp that is at curlevel, curblkid.
 	 */
-	curlevel = level;
+	curlevel = (int)level;
 	curblkid = blkid;
 	while (curlevel < nlevels - 1) {
 		int parent_level = curlevel + 1;
 		uint64_t parent_blkid = curblkid >> epbs;
 		dmu_buf_impl_t *db;
 
-		if (dbuf_hold_impl(dn, parent_level, parent_blkid,
+		if (dbuf_hold_impl(dn, (uint8_t)parent_level, parent_blkid,
 						   FALSE, TRUE, FTAG, &db) == 0) {
 			blkptr_t *bpp = db->db_buf->b_data;
 			bp = bpp[P2PHASE(curblkid, 1 << epbs)];
@@ -2909,7 +2909,7 @@ dbuf_hold_copy(struct dbuf_hold_impl_data *dh)
 		    arc_buf_lsize(data), compress_type));
 	} else {
 		dbuf_set_data(db, arc_alloc_buf(dn->dn_objset->os_spa, db,
-		    DBUF_GET_BUFC_TYPE(db), db->db.db_size));
+		    DBUF_GET_BUFC_TYPE(db), (int32_t)db->db.db_size));
 	}
 
 	bcopy(data->b_data, db->db.db_data, arc_buf_size(data));
@@ -3075,7 +3075,7 @@ dmu_buf_impl_t *
 dbuf_hold_level(dnode_t *dn, int level, uint64_t blkid, void *tag)
 {
 	dmu_buf_impl_t *db;
-	int err = dbuf_hold_impl(dn, level, blkid, FALSE, FALSE, tag, &db);
+	int err = dbuf_hold_impl(dn, (uint8_t)level, blkid, FALSE, FALSE, tag, &db);
 	return (err ? NULL : db);
 }
 
@@ -3104,7 +3104,7 @@ dbuf_spill_set_blksz(dmu_buf_t *db_fake, uint64_t blksz, dmu_tx_t *tx)
 	DB_DNODE_ENTER(db);
 	dn = DB_DNODE(db);
 	rw_enter(&dn->dn_struct_rwlock, RW_WRITER);
-	dbuf_new_size(db, blksz, tx);
+	dbuf_new_size(db, (int)blksz, tx);
 	rw_exit(&dn->dn_struct_rwlock);
 	DB_DNODE_EXIT(db);
 
@@ -3658,8 +3658,8 @@ dbuf_sync_leaf(dbuf_dirty_record_t *dr, dmu_tx_t *tx)
 		 * objects only modified in the syncing context (e.g.
 		 * DNONE_DNODE blocks).
 		 */
-		int psize = arc_buf_size(*datap);
-		int lsize = arc_buf_lsize(*datap);
+		uint64_t psize = arc_buf_size(*datap);
+		uint64_t lsize = arc_buf_lsize(*datap);
 		arc_buf_contents_t type = DBUF_GET_BUFC_TYPE(db);
 		enum zio_compress compress_type = arc_get_compression(*datap);
 

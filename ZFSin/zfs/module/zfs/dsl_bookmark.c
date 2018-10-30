@@ -48,7 +48,7 @@ dsl_bookmark_hold_ds(dsl_pool_t *dp, const char *fullname,
 	*shortnamep = hashp + 1;
 	if (zfs_component_namecheck(*shortnamep, NULL, NULL))
 		return (SET_ERROR(EINVAL));
-	(void) strlcpy(buf, fullname, hashp - fullname + 1);
+	(void) strlcpy(buf, fullname, (uint32_t)(hashp - fullname + 1));
 	return (dsl_dataset_hold(dp, buf, tag, dsp));
 }
 

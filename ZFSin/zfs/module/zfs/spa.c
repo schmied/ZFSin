@@ -1689,7 +1689,7 @@ spa_load_l2cache(spa_t *spa)
 	nvlist_t **l2cache = NULL;
 	uint_t nl2cache = 0;
 	int i, j, oldnvdevs;
-	uint64_t guid = NULL;
+	uint64_t guid = 0;
 	vdev_t *vd, **oldvdevs, **newvdevs;
 	spa_aux_vdev_t *sav = &spa->spa_l2cache;
 
@@ -1918,7 +1918,7 @@ spa_check_for_missing_logs(spa_t *spa)
 
 		if (idx > 0) {
 			fnvlist_add_nvlist_array(nv,
-			    ZPOOL_CONFIG_CHILDREN, child, idx);
+			    ZPOOL_CONFIG_CHILDREN, child, (uint_t)idx);
 			fnvlist_add_nvlist(spa->spa_load_info,
 			    ZPOOL_CONFIG_MISSING_DEVICES, nv);
 
@@ -2366,7 +2366,7 @@ spa_load(spa_t *spa, spa_load_state_t state, spa_import_type_t type)
 	 * and are making their way through the eviction process.
 	 */
 	spa_evicting_os_wait(spa);
-	spa->spa_minref = refcount_count(&spa->spa_refcount);
+	spa->spa_minref = (int)refcount_count(&spa->spa_refcount);
 	if (error) {
 		if (error != EEXIST) {
 			spa->spa_loaded_ts.tv_sec = 0;
@@ -3682,8 +3682,8 @@ spa_ld_checkpoint_rewind(spa_t *spa)
 		spa_config_enter(spa, SCL_ALL, FTAG, RW_WRITER);
 		vdev_t *svd[SPA_SYNC_MIN_VDEVS] = { NULL };
 		int svdcount = 0;
-		int children = rvd->vdev_children;
-		int c0 = spa_get_random(children);
+		uint64_t children = rvd->vdev_children;
+		uint64_t c0 = spa_get_random(children);
 
 		for (int c = 0; c < children; c++) {
 			vdev_t *vd = rvd->vdev_child[(c0 + c) % children];
@@ -5059,7 +5059,7 @@ spa_create(const char *pool, nvlist_t *nvroot, nvlist_t *props,
 	 * and are making their way through the eviction process.
 	 */
 	spa_evicting_os_wait(spa);
-	spa->spa_minref = refcount_count(&spa->spa_refcount);
+	spa->spa_minref = (int)refcount_count(&spa->spa_refcount);
 	spa->spa_load_state = SPA_LOAD_NONE;
 
 #if defined(_KERNEL)
@@ -5359,7 +5359,7 @@ spa_import(char *pool, nvlist_t *config, nvlist_t *props, uint64_t flags)
 		return (0);
 	}
 
-	spa_activate(spa, mode);
+	spa_activate(spa, (int)mode);
 
 	/*
 	 * Don't start async tasks until we know everything is healthy.
@@ -8069,8 +8069,8 @@ spa_sync(spa_t *spa, uint64_t txg)
 		if (list_is_empty(&spa->spa_config_dirty_list)) {
 			vdev_t *svd[SPA_SYNC_MIN_VDEVS] = { NULL };
 			int svdcount = 0;
-			int children = rvd->vdev_children;
-			int c0 = spa_get_random(children);
+			uint64_t children = rvd->vdev_children;
+			uint64_t c0 = spa_get_random(children);
 
 			for (c = 0; c < children; c++) {
 				vd = rvd->vdev_child[(c0 + c) % children];
@@ -8090,7 +8090,7 @@ spa_sync(spa_t *spa, uint64_t txg)
 			error = vdev_config_sync(svd, svdcount, txg);
 		} else {
 			error = vdev_config_sync(rvd->vdev_child,
-			    rvd->vdev_children, txg);
+			    (int)rvd->vdev_children, txg);
 		}
 
 		if (error == 0)

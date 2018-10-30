@@ -354,7 +354,7 @@ dump_write(dmu_sendarg_t *dsp, dmu_object_type_t type, uint64_t object,
 		drrw->drr_key.ddk_cksum = bp->blk_cksum;
 	}
 
-	if (dump_record(dsp, data, payload_size) != 0)
+	if (dump_record(dsp, data, (int)payload_size) != 0)
 		return (SET_ERROR(EINTR));
 	return (0);
 }
@@ -426,7 +426,7 @@ dump_spill(dmu_sendarg_t *dsp, const blkptr_t *bp, uint64_t object, void *data)
 		payload_size = drrs->drr_compressed_size;
 	}
 
-	if (dump_record(dsp, data, payload_size) != 0)
+	if (dump_record(dsp, data, (int)payload_size) != 0)
 		return (SET_ERROR(EINTR));
 	return (0);
 }
@@ -542,7 +542,7 @@ dump_dnode(dmu_sendarg_t *dsp, const blkptr_t *bp, uint64_t object,
 		 * to send it.
 		 */
 		if (bonuslen != 0) {
-			drro->drr_raw_bonuslen = DN_MAX_BONUS_LEN(dnp);
+			drro->drr_raw_bonuslen = (uint32_t) DN_MAX_BONUS_LEN(dnp);
 			bonuslen = drro->drr_raw_bonuslen;
 		}
 	}
@@ -886,7 +886,7 @@ do_dump(dmu_sendarg_t *dsa, struct send_block_record *data)
 			}
 		} else {
 			err = dump_write(dsa, type, zb->zb_object, offset,
-			    blksz, arc_buf_size(abuf), bp, abuf->b_data);
+			    blksz, (int)arc_buf_size(abuf), bp, abuf->b_data);
 		}
 		arc_buf_destroy(abuf, &abuf);
 	}
@@ -1255,7 +1255,7 @@ dmu_send(const char *tosnap, const char *fromsnap, boolean_t embedok,
 	if (fromsnap != NULL) {
 		zfs_bookmark_phys_t zb;
 		boolean_t is_clone = B_FALSE;
-		int fsnamelen = strchr(tosnap, '@') - tosnap;
+		int fsnamelen = (int) (strchr(tosnap, '@') - tosnap);
 
 		/*
 		 * If the fromsnap is in a different filesystem, then
@@ -1682,7 +1682,7 @@ dmu_recv_begin_check(void *arg, dmu_tx_t *tx)
 
 		/* Open the parent of tofs */
 		ASSERT3U(strlen(tofs), <, sizeof (buf));
-		(void) strlcpy(buf, tofs, strrchr(tofs, '/') - tofs + 1);
+		(void) strlcpy(buf, tofs, (uint32_t)(strrchr(tofs, '/') - tofs + 1));
 		error = dsl_dataset_hold_flags(dp, buf, dsflags, FTAG, &ds);
 		if (error != 0)
 			return (error);
@@ -2234,7 +2234,7 @@ receive_read(struct receive_arg *ra, int len, void *buf)
 			ra->err = SET_ERROR(ECKSUM);
 		}
 		ra->voff += len - done - resid;
-		done = len - resid;
+		done = (int)(len - resid);
 		if (ra->err != 0)
 			return (ra->err);
 	}
@@ -2348,7 +2348,7 @@ deduce_nblkptr(dmu_object_type_t bonus_type, uint64_t bonus_size)
 	if (bonus_type == DMU_OT_SA) {
 		return (1);
 	} else {
-		return (1 +
+		return (uint8_t)(1 +
 		    ((DN_MAX_BONUSLEN - bonus_size) >> SPA_BLKPTRSHIFT));
 	}
 }
@@ -2670,7 +2670,7 @@ receive_write(struct receive_writer_arg *rwa, struct drr_write *drrw,
 
 	tx = dmu_tx_create(rwa->os);
 	dmu_tx_hold_write(tx, drrw->drr_object,
-	    drrw->drr_offset, drrw->drr_logical_size);
+	    drrw->drr_offset, (int)drrw->drr_logical_size);
 	err = dmu_tx_assign(tx, TXG_WAIT);
 	if (err != 0) {
 		dmu_tx_abort(tx);

@@ -524,7 +524,7 @@ dmu_buf_hold_array_by_dnode(dnode_t *dn, uint64_t offset, uint64_t length,
 		dmu_buf_impl_t *db = dbuf_hold(dn, blkid + i, tag);
 		if (db == NULL) {
 			rw_exit(&dn->dn_struct_rwlock);
-			dmu_buf_rele_array(dbp, nblks, tag);
+			dmu_buf_rele_array(dbp, (int)nblks, tag);
 			zio_nowait(zio);
 			return (SET_ERROR(EIO));
 		}
@@ -544,7 +544,7 @@ dmu_buf_hold_array_by_dnode(dnode_t *dn, uint64_t offset, uint64_t length,
 	/* wait for async i/o */
 	err = zio_wait(zio);
 	if (err) {
-		dmu_buf_rele_array(dbp, nblks, tag);
+		dmu_buf_rele_array(dbp, (int)nblks, tag);
 		return (err);
 	}
 
@@ -560,13 +560,13 @@ dmu_buf_hold_array_by_dnode(dnode_t *dn, uint64_t offset, uint64_t length,
 				err = SET_ERROR(EIO);
 			mutex_exit(&db->db_mtx);
 			if (err) {
-				dmu_buf_rele_array(dbp, nblks, tag);
+				dmu_buf_rele_array(dbp, (int)nblks, tag);
 				return (err);
 			}
 		}
 	}
 
-	*numbufsp = nblks;
+	*numbufsp = (int)nblks;
 	*dbpp = dbp;
 	return (0);
 }
@@ -672,8 +672,8 @@ dmu_prefetch(objset_t *os, uint64_t object, int64_t level, uint64_t offset,
 	 * last - first + 1.
 	 */
 	if (level > 0 || dn->dn_datablkshift != 0) {
-		nblks = dbuf_whichblock(dn, level, offset + len - 1) -
-			dbuf_whichblock(dn, level, offset) + 1;
+		nblks = (int)(dbuf_whichblock(dn, level, offset + len - 1) -
+			dbuf_whichblock(dn, level, offset) + 1);
 	} else {
 		nblks = (offset < dn->dn_datablksz);
 	}
@@ -1457,7 +1457,7 @@ dmu_read_uio_dnode(dnode_t *dn, uio_t *uio, uint64_t size)
 			else
 				XUIOSTAT_BUMP(xuiostat_rbuf_copied);
 		} else {
-			err = uiomove((char *)db->db_data + bufoff, tocpy,
+			err = uiomove((char *)db->db_data + bufoff, (uint32_t)tocpy,
 						  UIO_READ, uio);
 		}
 		if (err)
@@ -1561,7 +1561,7 @@ dmu_write_uio_dnode(dnode_t *dn, uio_t *uio, uint64_t size, dmu_tx_t *tx)
 		 * to lock the pages in memory, so that uiomove won't
 		 * block.
 		 */
-		err = uiomove((char *)db->db_data + bufoff, tocpy,
+		err = uiomove((char *)db->db_data + bufoff, (uint32_t)tocpy,
 		    UIO_WRITE, uio);
 
 		if (tocpy == db->db_size)
@@ -1656,7 +1656,7 @@ dmu_read_iokit(objset_t *os, uint64_t object, uint64_t *offset,
 
         for (i = 0; i < numbufs; i++) {
             int tocpy;
-            int bufoff;
+            uint64_t bufoff;
             dmu_buf_t *db = dbp[i];
             uint64_t done=0;
 
@@ -1767,7 +1767,7 @@ dmu_write_iokit_dnode(dnode_t *dn, uint64_t *offset, uint64_t position,
 
         for (i = 0; i < numbufs; i++) {
             int tocpy;
-            int bufoff;
+            uint64_t bufoff;
             uint64_t done=0;
             dmu_buf_t *db = dbp[i];
 
@@ -1889,7 +1889,7 @@ dmu_copy_from_buf(objset_t *os, uint64_t object, uint64_t offset,
 		ASSERT3U(arc_get_compression(srcdb->db_buf),
 		    ==, ZIO_COMPRESS_OFF);
 		abuf = arc_loan_buf(os->os_spa,
-		    DMU_OT_IS_METADATA(DB_DNODE(dstdb)->dn_type), datalen);
+		    DMU_OT_IS_METADATA(DB_DNODE(dstdb)->dn_type), (int)datalen);
 	}
 
 	ASSERT3U(datalen, ==, arc_buf_size(abuf));
@@ -2503,7 +2503,7 @@ dmu_write_policy(objset_t *os, dnode_t *dn, int level, int wp, zio_prop_t *zp)
 	zp->zp_compress = compress;
 	zp->zp_checksum = checksum;
 	zp->zp_type = (wp & WP_SPILL) ? dn->dn_bonustype : type;
-	zp->zp_level = level;
+	zp->zp_level = (uint8_t)level;
 	zp->zp_copies = MIN(copies, spa_max_replication(os->os_spa));
 	zp->zp_dedup = dedup;
 	zp->zp_dedup_verify = dedup && dedup_verify;

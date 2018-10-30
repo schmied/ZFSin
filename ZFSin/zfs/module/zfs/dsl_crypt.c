@@ -2002,8 +2002,8 @@ dsl_crypto_recv_raw_objset_sync(dsl_dataset_t *ds, dmu_objset_type_t ostype,
 	rrw_enter(&ds->ds_bp_rwlock, RW_READER, FTAG);
 	if (BP_IS_HOLE(dsl_dataset_get_blkptr(ds))) {
 		(void) dmu_objset_create_impl_dnstats(dp->dp_spa, ds,
-		    dsl_dataset_get_blkptr(ds), ostype, nlevels, blksz,
-		    ibs, tx);
+		    dsl_dataset_get_blkptr(ds), ostype, (int)nlevels, (int)blksz,
+		    (int)ibs, tx);
 		newds = B_TRUE;
 	}
 	rrw_exit(&ds->ds_bp_rwlock, FTAG);
@@ -2020,8 +2020,8 @@ dsl_crypto_recv_raw_objset_sync(dsl_dataset_t *ds, dmu_objset_type_t ostype,
 	os->os_next_write_raw[tx->tx_txg & TXG_MASK] = B_TRUE;
 
 	/* set metadnode compression and checksum */
-	mdn->dn_compress = compress;
-	mdn->dn_checksum = checksum;
+	mdn->dn_compress = (uint8_t)compress;
+	mdn->dn_checksum = (uint8_t)checksum;
 
 	rw_enter(&mdn->dn_struct_rwlock, RW_WRITER);
 	dnode_new_blkid(mdn, maxblkid, tx, B_FALSE);

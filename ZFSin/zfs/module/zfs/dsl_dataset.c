@@ -117,7 +117,7 @@ parent_delta(dsl_dataset_t *ds, int64_t delta)
 void
 dsl_dataset_block_born(dsl_dataset_t *ds, const blkptr_t *bp, dmu_tx_t *tx)
 {
-	int used, compressed, uncompressed;
+	uint64_t used, compressed, uncompressed;
 	int64_t delta;
 
 	used = bp_get_dsize_sync(tx->tx_pool->dp_spa, bp);
@@ -210,9 +210,9 @@ dsl_dataset_block_kill(dsl_dataset_t *ds, const blkptr_t *bp, dmu_tx_t *tx,
 {
 	spa_t *spa = dmu_tx_pool(tx)->dp_spa;
 
-	int used = bp_get_dsize_sync(spa, bp);
-	int compressed = BP_GET_PSIZE(bp);
-	int uncompressed = BP_GET_UCSIZE(bp);
+	uint64_t used = bp_get_dsize_sync(spa, bp);
+	uint64_t compressed = BP_GET_PSIZE(bp);
+	uint64_t uncompressed = BP_GET_UCSIZE(bp);
 
 	if (BP_IS_HOLE(bp))
 		return (0);

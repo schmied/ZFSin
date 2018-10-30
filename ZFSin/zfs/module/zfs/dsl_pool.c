@@ -205,7 +205,7 @@ dsl_pool_open_impl(spa_t *spa, uint64_t txg)
 	    offsetof(dsl_sync_task_t, dst_node));
 
 	dp->dp_sync_taskq = taskq_create("dp_sync_taskq",
-	    zfs_sync_taskq_batch_pct, minclsyspri, 1, INT_MAX,
+	    (int)zfs_sync_taskq_batch_pct, minclsyspri, 1, INT_MAX,
 	    TASKQ_THREADS_CPU_PCT);
 
 	dp->dp_zil_clean_taskq = taskq_create("dp_zil_clean_taskq",

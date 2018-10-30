@@ -57,7 +57,7 @@ dnode_increase_indirection(dnode_t *dn, dmu_tx_t *tx)
 	db = dbuf_hold_level(dn, dn->dn_phys->dn_nlevels, 0, FTAG);
 	ASSERT(db != NULL);
 
-	dn->dn_phys->dn_nlevels = new_level;
+	dn->dn_phys->dn_nlevels = (uint8_t)new_level;
 	dprintf("os=%p obj=%llu, increase to %d\n", dn->dn_objset,
 	    dn->dn_object, dn->dn_phys->dn_nlevels);
 

@@ -175,7 +175,7 @@ dbuf_stats_hash_table_addr(kstat_t *ksp, off_t n)
 	ASSERT(MUTEX_HELD(&dsh->lock));
 
 	if (n <= dsh->hash->hash_table_mask) {
-		dsh->idx = n;
+		dsh->idx = (int)n;
 		return (dsh);
 	}
 

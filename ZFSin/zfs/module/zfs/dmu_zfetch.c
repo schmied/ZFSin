@@ -177,7 +177,7 @@ dmu_zfetch_stream_create(zfetch_t *zf, uint64_t blkid)
 	 * If we are already at the maximum number of streams for this file,
 	 * even after removing old streams, then don't create this stream.
 	 */
-	uint32_t max_streams = MAX(1, MIN(zfetch_max_streams,
+	uint32_t max_streams = (uint32_t)MAX(1, MIN(zfetch_max_streams,
 	    zf->zf_dnode->dn_maxblkid * zf->zf_dnode->dn_datablksz /
 	    zfetch_max_distance));
 	if (numstreams >= max_streams) {
@@ -304,7 +304,7 @@ dmu_zfetch(zfetch_t *zf, uint64_t blkid, uint64_t nblks, boolean_t fetch_data)
 		 */
 		pf_ahead_blks = zs->zs_pf_blkid - blkid + nblks;
 		max_blks = max_dist_blks - (pf_start - end_of_access_blkid);
-		pf_nblks = MIN(pf_ahead_blks, max_blks);
+		pf_nblks = (int) MIN(pf_ahead_blks, max_blks);
 	} else {
 		pf_nblks = 0;
 	}
@@ -327,7 +327,7 @@ dmu_zfetch(zfetch_t *zf, uint64_t blkid, uint64_t nblks, boolean_t fetch_data)
 	 */
 	pf_ahead_blks = zs->zs_ipf_blkid - blkid + nblks + pf_nblks;
 	max_blks = max_dist_blks - (ipf_start - end_of_access_blkid);
-	ipf_nblks = MIN(pf_ahead_blks, max_blks);
+	ipf_nblks = (int) MIN(pf_ahead_blks, max_blks);
 	zs->zs_ipf_blkid = ipf_start + ipf_nblks;
 
 	epbs = zf->zf_dnode->dn_indblkshift - SPA_BLKPTRSHIFT;

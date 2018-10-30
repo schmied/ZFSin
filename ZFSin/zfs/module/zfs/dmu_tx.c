@@ -435,7 +435,7 @@ dmu_tx_hold_free_impl(dmu_tx_hold_t *txh, uint64_t off, uint64_t len)
 			}
 
 			(void) refcount_add_many(&txh->txh_memory_tohold,
-			    1 << dn->dn_indblkshift, FTAG);
+			    1ULL << dn->dn_indblkshift, FTAG);
 
 			err = dmu_tx_check_ioerr(zio, dn, 1, i);
 			if (err != 0) {

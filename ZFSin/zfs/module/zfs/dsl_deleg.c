@@ -537,19 +537,19 @@ dsl_check_user_access(objset_t *mos, uint64_t zapobj, const char *perm,
 	/* check for user */
 	id = crgetuid(cr);
 	if (dsl_check_access(mos, zapobj,
-	    ZFS_DELEG_USER, checkflag, &id, perm) == 0)
+	    (char)ZFS_DELEG_USER, (char)checkflag, &id, perm) == 0)
 		return (0);
 
 	/* check for users primary group */
 	id = crgetgid(cr);
 	if (dsl_check_access(mos, zapobj,
-	    ZFS_DELEG_GROUP, checkflag, &id, perm) == 0)
+		(char)ZFS_DELEG_GROUP, (char)checkflag, &id, perm) == 0)
 		return (0);
 
 	/* check for everyone entry */
 	id = -1;
 	if (dsl_check_access(mos, zapobj,
-	    ZFS_DELEG_EVERYONE, checkflag, &id, perm) == 0)
+		(char)ZFS_DELEG_EVERYONE, (char)checkflag, &id, perm) == 0)
 		return (0);
 
 	/* check each supplemental group user is a member of */
@@ -557,7 +557,7 @@ dsl_check_user_access(objset_t *mos, uint64_t zapobj, const char *perm,
 	gids = crgetgroups(cr);
 	for (i = 0; i != ngids; i++) {
 		id = gids[i];
-		if (dsl_check_access(mos, zapobj, ZFS_DELEG_GROUP, checkflag,
+		if (dsl_check_access(mos, zapobj, (char)ZFS_DELEG_GROUP, (char)checkflag,
 		    &id, perm) == 0) {
 #ifdef _WIN32
 			crgetgroupsfree((gid_t *)gids);
@@ -577,7 +577,7 @@ dsl_check_user_access(objset_t *mos, uint64_t zapobj, const char *perm,
 
 	for (i = 0; i != ngids; i++) {
 		id = gids2[i];
-		if (dsl_check_access(mos, zapobj, ZFS_DELEG_GROUP, checkflag,
+		if (dsl_check_access(mos, zapobj, (char)ZFS_DELEG_GROUP, (char)checkflag,
 		    &id, perm) == 0) {
 			return (0);
 		}

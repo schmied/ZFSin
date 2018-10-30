@@ -269,7 +269,7 @@ traverse_visitbp(traverse_data_t *td, const dnode_phys_t *dnp,
 		ASSERT(pd->pd_bytes_fetched >= 0);
 		while (pd->pd_bytes_fetched < size && !pd->pd_exited)
 			cv_wait_sig(&pd->pd_cv, &pd->pd_mtx);
-		pd->pd_bytes_fetched -= size;
+		pd->pd_bytes_fetched -= (int32_t)size;
 		cv_broadcast(&pd->pd_cv);
 		mutex_exit(&pd->pd_mtx);
 	}
@@ -291,7 +291,7 @@ traverse_visitbp(traverse_data_t *td, const dnode_phys_t *dnp,
 	}
 
 	if (BP_GET_LEVEL(bp) > 0) {
-		uint32_t flags = ARC_FLAG_WAIT;
+		arc_flags_t flags = ARC_FLAG_WAIT;
 		int32_t i;
 		int32_t epb = BP_GET_LSIZE(bp) >> SPA_BLKPTRSHIFT;
 		zbookmark_phys_t *czb;
@@ -327,7 +327,7 @@ traverse_visitbp(traverse_data_t *td, const dnode_phys_t *dnp,
 		kmem_free(czb, sizeof (zbookmark_phys_t));
 
 	} else if (BP_GET_TYPE(bp) == DMU_OT_DNODE) {
-		uint32_t flags = ARC_FLAG_WAIT;
+		arc_flags_t flags = ARC_FLAG_WAIT;
  		uint32_t zio_flags = ZIO_FLAG_CANFAIL;
 		int32_t i;
 		int32_t epb = BP_GET_LSIZE(bp) >> DNODE_SHIFT;
@@ -621,7 +621,7 @@ traverse_impl(spa_t *spa, dsl_dataset_t *ds, uint64_t objset, blkptr_t *rootbp,
 	/* See comment on ZIL traversal in dsl_scan_visitds. */
 	if (ds != NULL && !ds->ds_is_snapshot && !BP_IS_HOLE(rootbp)) {
 		enum zio_flag zio_flags = ZIO_FLAG_CANFAIL;
-		uint32_t flags = ARC_FLAG_WAIT;
+		arc_flags_t flags = ARC_FLAG_WAIT;
 		objset_phys_t *osp;
 		arc_buf_t *buf;
 

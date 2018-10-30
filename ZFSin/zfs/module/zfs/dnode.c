@@ -362,7 +362,7 @@ dnode_setbonuslen(dnode_t *dn, int newsize, dmu_tx_t *tx)
 	rw_enter(&dn->dn_struct_rwlock, RW_WRITER);
 	ASSERT3U(newsize, <=, DN_MAX_BONUSLEN -
 	    (dn->dn_nblkptr-1) * sizeof (blkptr_t));
-	dn->dn_bonuslen = newsize;
+	dn->dn_bonuslen = (uint16_t)newsize;
 	if (newsize == 0)
 		dn->dn_next_bonuslen[tx->tx_txg & TXG_MASK] = DN_ZERO_BONUSLEN;
 	else
@@ -600,7 +600,7 @@ dnode_allocate(dnode_t *dn, dmu_object_type_t ot, int blocksize, int ibs,
 
 	dn->dn_type = ot;
 	dnode_setdblksz(dn, blocksize);
-	dn->dn_indblkshift = ibs;
+	dn->dn_indblkshift = (uint8_t) ibs;
 	dn->dn_nlevels = 1;
 	if (bonustype == DMU_OT_SA) /* Maximize bonus space for SA */
 		dn->dn_nblkptr = 1;

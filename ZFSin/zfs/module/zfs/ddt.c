@@ -623,7 +623,7 @@ ddt_compress(void *src, uchar_t *dst, size_t s_len, size_t d_len)
 		bcopy(src, dst, s_len);
 	}
 
-	*version = cpfunc;
+	*version = (uchar_t)cpfunc;
 	/* CONSTCOND */
 	if (ZFS_HOST_BYTEORDER)
 		*version |= DDT_COMPRESS_BYTEORDER_MASK;

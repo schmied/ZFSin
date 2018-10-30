@@ -587,7 +587,7 @@ dsl_scan_check_suspend(dsl_scan_t *scn, const zbookmark_phys_t *zb)
 	mintime = (scn->scn_phys.scn_func == POOL_SCAN_RESILVER) ?
 	    zfs_resilver_min_time_ms : zfs_scan_min_time_ms;
 	elapsed_nanosecs = gethrtime() - scn->scn_sync_start_time;
-	dirty_pct = scn->scn_dp->dp_dirty_total * 100 / zfs_dirty_data_max;
+	dirty_pct = (int)(scn->scn_dp->dp_dirty_total * 100ULL / zfs_dirty_data_max);
 	if (elapsed_nanosecs / NANOSEC >= zfs_txg_timeout ||
 	    (NSEC2MSEC(elapsed_nanosecs) > mintime &&
 	    (txg_sync_waiting(scn->scn_dp) ||

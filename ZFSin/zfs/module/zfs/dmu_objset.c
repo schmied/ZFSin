@@ -190,7 +190,7 @@ copies_changed_cb(void *arg, uint64_t newval)
 	ASSERT(newval > 0);
 	ASSERT(newval <= spa_max_replication(os->os_spa));
 
-	os->os_copies = newval;
+	os->os_copies = (uint8_t)newval;
 }
 
 static void
@@ -286,7 +286,7 @@ recordsize_changed_cb(void *arg, uint64_t newval)
 {
 	objset_t *os = arg;
 
-	os->os_recordsize = newval;
+	os->os_recordsize = (int)newval;
 }
 
 void
@@ -500,7 +500,7 @@ dmu_objset_open_impl(spa_t *spa, dsl_dataset_t *ds, blkptr_t *bp,
 		os->os_checksum = ZIO_CHECKSUM_FLETCHER_4;
 		os->os_compress = ZIO_COMPRESS_ON;
 		os->os_encrypted = B_FALSE;
-		os->os_copies = spa_max_replication(spa);
+		os->os_copies = (uint8_t)spa_max_replication(spa);
 		os->os_dedup_checksum = ZIO_CHECKSUM_OFF;
 		os->os_dedup_verify = B_FALSE;
 		os->os_logbias = ZFS_LOGBIAS_LATENCY;
@@ -948,7 +948,7 @@ dmu_objset_create_impl_dnstats(spa_t *spa, dsl_dataset_t *ds, blkptr_t *bp,
 		}
 
 		mdn->dn_next_nlevels[tx->tx_txg & TXG_MASK] =
-		    mdn->dn_nlevels = levels;
+		    mdn->dn_nlevels = (uint8_t)levels;
 	}
 
 	ASSERT(type != DMU_OST_NONE);
@@ -1501,7 +1501,7 @@ dmu_objset_sync(objset_t *os, zio_t *pio, dmu_tx_t *tx)
 		 * spa_max_replication() could change, so reset
 		 * os_copies here.
 		 */
-		os->os_copies = spa_max_replication(os->os_spa);
+		os->os_copies = (uint8_t)spa_max_replication(os->os_spa);
 	}
 
 	/*
@@ -2591,7 +2591,7 @@ dmu_fsname(const char *snapname, char *buf)
 		return (SET_ERROR(EINVAL));
 	if (atp - snapname >= ZFS_MAX_DATASET_NAME_LEN)
 		return (SET_ERROR(ENAMETOOLONG));
-	(void) strlcpy(buf, snapname, atp - snapname + 1);
+	(void) strlcpy(buf, snapname, (uint32_t)(atp - snapname + 1));
 	return (0);
 }
 
