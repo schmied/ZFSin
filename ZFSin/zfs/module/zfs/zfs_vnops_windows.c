@@ -296,6 +296,52 @@ err:
 
 }
 
+/*
+ * Take filename, look for colons ":".
+ * No colon, return OK.
+ * if ends with "::$DATA". Terminate on colon, return OK (regular file open).
+ * if ends with anything not ":$DATA", return error. (we don't handle other types)
+ * if colon, parse name up until next colon. Assign colonname to point to stream name.
+ */
+int stream_parse(char *filename, char **streamname)
+{
+	char *colon, *second;
+
+	// Just a filename, no streams.
+	colon = strchr(filename, ':');
+	if (colon == NULL)
+		return 0;
+
+	// Regular file, with "::$DATA" end?
+	if (!strcmp(colon, "::$DATA")) {
+		*colon = 0; // Terminate before colon
+		return 0;
+	}
+
+	// Look for second colon
+	second = strchr(&colon[1], ':');
+
+	// No second colon, just stream name. Validity check?
+	if (second == NULL) {
+		*streamname = &colon[1];
+		*colon = 0; // Cut off streamname from filename
+		return 0;
+	}
+
+	// Have second colon, better be ":$DATA".
+	if (!strcmp(second, ":$DATA")) {
+
+		// Terminate at second colon, set streamname
+		*second = 0; // Cut off type from streamname
+		*streamname = &colon[1];
+		*colon = 0; // Cut of streamname from filename
+		return 0;
+	}
+
+	// Not $DATA
+	dprintf("%s: Not handling StreamType '%s'\n", __func__, second);
+	return EINVAL;
+}
 
 /*
  * Attempt to parse 'filename', descending into filesystem.
@@ -526,6 +572,7 @@ int zfs_vnop_lookup(PIRP Irp, PIO_STACK_LOCATION IrpSp, mount_t *zmo)
 	zfsvfs_t *zfsvfs = vfs_fsprivate(zmo);
 	int flags = 0;
 	int dvp_no_rele = 0;
+	char *stream_name = NULL;
 	NTSTATUS Status = STATUS_SUCCESS;
 
 	if (zfsvfs == NULL) return STATUS_OBJECT_PATH_NOT_FOUND;
@@ -718,6 +765,23 @@ int zfs_vnop_lookup(PIRP Irp, PIO_STACK_LOCATION IrpSp, mount_t *zmo)
 			dvp_no_rele = 1;
 		}
 
+		/* 
+		 * Here, we want to check for Streams, which come in the syntax filename.ext:Stream:Type
+		 *    Type: appears optional, or we handle ":DATA". All others will be rejected.
+		 *  Stream: name of the stream, we convert this into XATTR named Stream
+		 * It is valid to create a filename containing colons, so who knows what will
+		 * happen here.
+		 */
+		error = stream_parse(filename, &stream_name);
+		if (error) {
+			kmem_free(filename, PATH_MAX);
+			Irp->IoStatus.Information = 0;
+			return STATUS_INVALID_PARAMETER;
+		}
+		if (stream_name != NULL) 
+			dprintf("%s: Parsed out streamname '%s'\n", __func__, stream_name);
+
+
 		// If we have dvp, it is HELD
 		error = zfs_find_dvp_vp(zfsvfs, filename, (CreateFile || OpenTargetDirectory), (CreateDisposition == FILE_CREATE), &finalname, &dvp, &vp, flags);
 
@@ -793,6 +857,30 @@ int zfs_vnop_lookup(PIRP Irp, PIO_STACK_LOCATION IrpSp, mount_t *zmo)
 		Irp->IoStatus.Information = FILE_DOES_NOT_EXIST;
 		return STATUS_OBJECT_NAME_NOT_FOUND;
 	}
+
+	// Streams
+	// If we opened vp, grab it's xattrdir, and try to to locate stream
+	if (stream_name != NULL && vp != NULL) {
+		// Here, we will release dvp, and attempt to open the xattr dir.
+		// xattr dir will be the new dvp. Then we will look for streamname
+		// in xattrdir, and assign vp.
+		VN_RELE(dvp);
+		// Create the xattrdir only if we are to create a new entry
+		if (error = zfs_get_xattrdir(VTOZ(vp), &dvp, cr, CreateFile ? CREATE_XATTR_DIR : 0)) {
+			VN_RELE(vp);
+			kmem_free(filename, PATH_MAX);
+			Irp->IoStatus.Information = FILE_DOES_NOT_EXIST;
+			return STATUS_OBJECT_NAME_NOT_FOUND;
+		}
+		vnode_setsecurity(dvp, vp);
+		VN_RELE(vp);
+		vp = NULL;
+		int direntflags = 0; // To detect ED_CASE_CONFLICT
+		error = zfs_dirlook(VTOZ(dvp), stream_name, &vp, 0 /*FIGNORECASE*/, &direntflags, NULL);
+		// Here, it may not exist, as we are to create it.
+		finalname = stream_name;
+	}
+
 
 	if (OpenTargetDirectory) {
 		if (dvp) {
@@ -1105,9 +1193,10 @@ int zfs_vnop_lookup(PIRP Irp, PIO_STACK_LOCATION IrpSp, mount_t *zmo)
 					FileObject,
 					&vp->share_access);
 
-				zfs_send_notify(zfsvfs, zp->z_name_cache, zp->z_name_offset,
-					FILE_NOTIFY_CHANGE_FILE_NAME,
-					FILE_ACTION_ADDED);
+				if (stream_name == NULL)
+					zfs_send_notify(zfsvfs, zp->z_name_cache, zp->z_name_offset,
+						FILE_NOTIFY_CHANGE_FILE_NAME,
+						FILE_ACTION_ADDED);
 			}
 			VN_RELE(vp);
 			VN_RELE(dvp);
@@ -2043,7 +2132,7 @@ NTSTATUS query_volume_information(PDEVICE_OBJECT DeviceObject, PIRP Irp, PIO_STA
 		}
 
 		FILE_FS_ATTRIBUTE_INFORMATION *ffai = Irp->AssociatedIrp.SystemBuffer;
-		ffai->FileSystemAttributes = FILE_CASE_PRESERVED_NAMES /*| FILE_NAMED_STREAMS*/ |
+		ffai->FileSystemAttributes = FILE_CASE_PRESERVED_NAMES | FILE_NAMED_STREAMS |
 			FILE_PERSISTENT_ACLS | FILE_SUPPORTS_OBJECT_IDS | FILE_SUPPORTS_SPARSE_FILES | FILE_VOLUME_QUOTAS |
 			FILE_SUPPORTS_REPARSE_POINTS | FILE_UNICODE_ON_DISK | FILE_SUPPORTS_HARD_LINKS | FILE_SUPPORTS_OPEN_BY_FILE_ID /* |
 			FILE_SUPPORTS_EXTENDED_ATTRIBUTES*/;
