@@ -1081,7 +1081,16 @@ int zfs_vnop_lookup(PIRP Irp, PIO_STACK_LOCATION IrpSp, mount_t *zmo)
 	if (vp || CreateFile == 0) {
 		ACCESS_MASK granted_access;
 		NTSTATUS Status;
-		if (IrpSp->Parameters.Create.SecurityContext->DesiredAccess != 0) {
+
+		// Streams do not call SeAccessCheck?
+		if (stream_name != NULL) {
+			IoSetShareAccess(IrpSp->Parameters.Create.SecurityContext->DesiredAccess, IrpSp->Parameters.Create.ShareAccess,
+				FileObject, vp ? &vp->share_access : &dvp->share_access);
+
+
+		} else if (IrpSp->Parameters.Create.SecurityContext->DesiredAccess != 0) {
+
+
 			SeLockSubjectContext(&IrpSp->Parameters.Create.SecurityContext->AccessState->SubjectSecurityContext);
 			if (!SeAccessCheck(/* (fileref->fcb->ads || fileref->fcb == Vcb->dummy_fcb) ? fileref->parent->fcb->sd : */ vnode_security(vp ? vp : dvp),
 				&IrpSp->Parameters.Create.SecurityContext->AccessState->SubjectSecurityContext,
@@ -2775,9 +2784,11 @@ NTSTATUS file_name_information(PDEVICE_OBJECT DeviceObject, PIRP Irp, PIO_STACK_
 }
 
 
-// Insert a streamname into an output buffer, if there is room, all the while counting
-// the space we would have required.
-void zfswin_insert_xattrname(char *streamname, uint8_t *outbuffer, DWORD **lastNextEntryOffset,
+// Insert a streamname into an output buffer, if there is room,
+// StreamNameLength is always the FULL name length, even when we only
+// fit partial.
+// Return 0 for OK, 1 for overflow.
+int zfswin_insert_xattrname(char *streamname, uint8_t *outbuffer, DWORD **lastNextEntryOffset,
 	uint64_t availablebytes, uint64_t *spaceused)
 {
 	/*
@@ -2792,19 +2803,10 @@ void zfswin_insert_xattrname(char *streamname, uint8_t *outbuffer, DWORD **lastN
 	// The first stream struct we assume is already aligned, but further ones
 	// should be padded here.
 	FILE_STREAM_INFORMATION *stream = NULL;
-	uint64_t spaceneeded;
+	int overflow = 0;
 
 	// If not first struct, align outsize to 8 byte - 0 aligns to 0.
 	*spaceused = (((*spaceused) + 7) & ~7);
-
-	if (*lastNextEntryOffset != NULL) {
-		// Update previous structure to point to this one. 
-		*lastNextEntryOffset = *spaceused;
-	}
-
-	// Set lastNextEntry to NULL - in case there is no room. Gets set
-	// if there is space.
-	*lastNextEntryOffset = NULL;
 
 	// Convert filename, to get space required.
 	ULONG needed_streamnamelen;
@@ -2813,12 +2815,20 @@ void zfswin_insert_xattrname(char *streamname, uint8_t *outbuffer, DWORD **lastN
 	// Check error? Do we care about convertion errors?
 	error = RtlUTF8ToUnicodeN(NULL, 0, &needed_streamnamelen, streamname, strlen(streamname));
 
-	// Calculate space needed, struct plus filename, accouting for first char in struct. Do we null term?
-	spaceneeded = FIELD_OFFSET(FILE_STREAM_INFORMATION, StreamName) + needed_streamnamelen + sizeof(WCHAR); // ":" char
+	// Is there room? We have to add the struct if there is room for it
+	// and fill it out as much as possible, and copy in as much of the name
+	// as we can.
+//	if (*spaceused + spaceneeded < availablebytes) {
 
-	// Is there room? If so, set stream
-	if (*spaceused + spaceneeded < availablebytes) {
+	if (*spaceused + sizeof(FILE_STREAM_INFORMATION) <= availablebytes) {
 		stream = (FILE_STREAM_INFORMATION *)&outbuffer[*spaceused];
+
+		// Room for one more struct, update privious's next ptr
+		if (*lastNextEntryOffset != NULL) {
+			// Update previous structure to point to this one. 
+			**lastNextEntryOffset = (DWORD)*spaceused;
+		}
+
 
 		// Directly set next to 0, assuming this will be last record
 		stream->NextEntryOffset = 0;
@@ -2826,17 +2836,62 @@ void zfswin_insert_xattrname(char *streamname, uint8_t *outbuffer, DWORD **lastN
 		// remember this struct's NextEntry, so the next one can fill it in.
 		*lastNextEntryOffset = &stream->NextEntryOffset;
 
-		// Copy out the filename
+		// Set all the fields now
+		stream->StreamSize.QuadPart = 8;
+		stream->StreamAllocationSize.QuadPart = 512;
+
+		// Return the total name length
+		stream->StreamNameLength = needed_streamnamelen + 7 * sizeof(WCHAR); // + "::$DATA"
+
+		// Consume the space of the struct
+		*spaceused += FIELD_OFFSET(FILE_STREAM_INFORMATION, StreamName);
+
+		uint64_t roomforname;
+		if (*spaceused + stream->StreamNameLength <= availablebytes) {
+			roomforname = stream->StreamNameLength;
+		} else {
+			roomforname = availablebytes - *spaceused;
+			overflow = 1;
+		}
+
+		// Consume the space of (partial?) filename
+		*spaceused += roomforname;
+
+		// Now copy out as much of the filename as can fit.
+		// We need to real full length in StreamNameLength
+		// There is always room for 1 char
 		stream->StreamName[0] = L':';
-		error = RtlUTF8ToUnicodeN(&stream->StreamName[1], needed_streamnamelen, &stream->StreamNameLength, streamname, strlen(streamname));
-		/* stream->StreamName[stream->StreamNameLength / sizeof(WCHAR)] = 0; */
-		dprintf("%s: added stream '%s'\n", __func__, streamname);
+		roomforname -= sizeof(WCHAR);
+
+		// Convert as much as we can, accounting for the start ":"
+		error = RtlUTF8ToUnicodeN(&stream->StreamName[1], roomforname, NULL, streamname, strlen(streamname));
+
+		// Remove what we converted
+		roomforname -= needed_streamnamelen;
+
+		// Only add the end if whole name fits
+		needed_streamnamelen /= sizeof(WCHAR); // Convert byte offset, to WCHAR offset.
+		if (roomforname >= 2)
+			stream->StreamName[needed_streamnamelen + 1] = L':';
+		if (roomforname >= 4)
+			stream->StreamName[needed_streamnamelen + 2] = L'$';
+		if (roomforname >= 6)
+			stream->StreamName[needed_streamnamelen + 3] = L'D';
+		if (roomforname >= 8)
+			stream->StreamName[needed_streamnamelen + 4] = L'A';
+		if (roomforname >= 10)
+			stream->StreamName[needed_streamnamelen + 5] = L'T';
+		if (roomforname >= 12)
+			stream->StreamName[needed_streamnamelen + 6] = L'A';
+
+		dprintf("%s: added %s streamname '%s'\n", __func__,
+			overflow ? "(partial)" : "", streamname);
 	} else {
 		dprintf("%s: no room for  '%s'\n", __func__, streamname);
+		overflow = 1;
 	}
 
-	// Update bytes needed even if we did not have room for this one.
-	*spaceused += spaceneeded;
+	return overflow;
 }
 
 
@@ -2850,6 +2905,7 @@ NTSTATUS file_stream_information(PDEVICE_OBJECT DeviceObject, PIRP Irp, PIO_STAC
 	void *outbuffer = Irp->AssociatedIrp.SystemBuffer;
 	uint64_t availablebytes = IrpSp->Parameters.QueryFile.Length;
 	DWORD *lastNextEntryOffset = NULL;
+	int overflow = 0;
 
 	dprintf("%s: \n", __func__);
 
@@ -2892,8 +2948,8 @@ NTSTATUS file_stream_information(PDEVICE_OBJECT DeviceObject, PIRP Irp, PIO_STAC
 	// Iterate the xattrs.
 
 	// Add a record for this name, if there is room. Keep a 
-	// count of how much space would need. insert_xattrname adds first ":"
-	zfswin_insert_xattrname(":$DATA", outbuffer, &lastNextEntryOffset, availablebytes, &spaceused);
+	// count of how much space would need. insert_xattrname adds first ":" and ":$DATA"
+	overflow = zfswin_insert_xattrname("", outbuffer, &lastNextEntryOffset, availablebytes, &spaceused);
 
 	/* Grab the hidden attribute directory vnode. */
 	if (zfs_get_xattrdir(zp, &xdvp, cr, 0) != 0) {
@@ -2907,7 +2963,7 @@ NTSTATUS file_stream_information(PDEVICE_OBJECT DeviceObject, PIRP Irp, PIO_STAC
 		if (xattr_protected(za.za_name))
 			continue;	 /* skip */
 #endif
-		zfswin_insert_xattrname(za.za_name, outbuffer, &lastNextEntryOffset, availablebytes, &spaceused);
+		overflow += zfswin_insert_xattrname(za.za_name, outbuffer, &lastNextEntryOffset, availablebytes, &spaceused);
 	}
 
 	zap_cursor_fini(&zc);
@@ -2919,48 +2975,16 @@ out:
 
 	ZFS_EXIT(zfsvfs);
 
-	if (spaceused > availablebytes)
+	if (overflow > 0)
 		Status = STATUS_BUFFER_OVERFLOW;
 	else
 		Status = STATUS_SUCCESS;
 
-	// Set to how space we would need
+	// Set to how space we used.
 	Irp->IoStatus.Information = spaceused;
 
 	return Status;
-
-#if 0
-	UNICODE_STRING name;
-	RtlInitUnicodeString(&name, L"::$DATA");
-
-	struct vnode *vp = FileObject->FsContext;
-	VN_HOLD(vp);
-	znode_t *zp = VTOZ(vp);
-	stream->NextEntryOffset = 0;
-	stream->StreamAllocationSize.QuadPart = P2ROUNDUP(zp->z_size, zfs_blksz(zp));
-	stream->StreamSize.QuadPart = zp->z_size;
-	VN_RELE(vp);
-
-	int space = IrpSp->Parameters.QueryFile.Length - FIELD_OFFSET(FILE_STREAM_INFORMATION, StreamName);
-	space = MIN(space, name.Length);
-	stream->StreamNameLength = name.Length;
-	ASSERT(space >= 0);
-	// Copy over as much as we can, including the first wchar
-	RtlCopyMemory(stream->StreamName, name.Buffer, space);
-
-	Irp->IoStatus.Information = FIELD_OFFSET(FILE_STREAM_INFORMATION, StreamName) + space;
-
-	if (space < name.Length)
-		Status = STATUS_BUFFER_OVERFLOW;
-	else
-		Status = STATUS_SUCCESS;
-
-	if (usedspace) *usedspace = space;
-	return Status;
-#endif
 }
-
-
 
 NTSTATUS query_information(PDEVICE_OBJECT DeviceObject, PIRP Irp, PIO_STACK_LOCATION IrpSp)
 {
