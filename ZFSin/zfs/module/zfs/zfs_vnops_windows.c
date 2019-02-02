@@ -2789,7 +2789,7 @@ NTSTATUS file_name_information(PDEVICE_OBJECT DeviceObject, PIRP Irp, PIO_STACK_
 // fit partial.
 // Return 0 for OK, 1 for overflow.
 int zfswin_insert_xattrname(char *streamname, uint8_t *outbuffer, DWORD **lastNextEntryOffset,
-	uint64_t availablebytes, uint64_t *spaceused)
+	uint64_t availablebytes, uint64_t *spaceused, uint64_t streamsize)
 {
 	/*
 	 typedef struct _FILE_STREAM_INFO {
@@ -2837,8 +2837,8 @@ int zfswin_insert_xattrname(char *streamname, uint8_t *outbuffer, DWORD **lastNe
 		*lastNextEntryOffset = &stream->NextEntryOffset;
 
 		// Set all the fields now
-		stream->StreamSize.QuadPart = 8;
-		stream->StreamAllocationSize.QuadPart = 512;
+		stream->StreamSize.QuadPart = streamsize;
+		stream->StreamAllocationSize.QuadPart = P2ROUNDUP(streamsize, 512);
 
 		// Return the total name length
 		stream->StreamNameLength = needed_streamnamelen + 7 * sizeof(WCHAR); // + "::$DATA"
@@ -2916,22 +2916,8 @@ NTSTATUS file_stream_information(PDEVICE_OBJECT DeviceObject, PIRP Irp, PIO_STAC
 		Irp->IoStatus.Information = sizeof(FILE_STREAM_INFORMATION);
 		return STATUS_BUFFER_TOO_SMALL;
 	}
-	/*
-	 typedef struct _FILE_STREAM_INFO {
-		  DWORD         NextEntryOffset;
-		  DWORD         StreamNameLength;
-		  LARGE_INTEGER StreamSize;
-		  LARGE_INTEGER StreamAllocationSize;
-		  WCHAR         StreamName[1];
-	 } FILE_STREAM_INFO, *PFILE_STREAM_INFO;
-	 *
-	 * Pack in the xattr names we have, like readdir, with NextEntryOffset pointing to
-	 * start of next, or 0 for last. Has to be 8 byte padded (between the entries, after the name).
-	 * The default stream name is "::$DATA" - first?
-	 * StreamNameLength is in bytes. (WCHAR * 2).
-	 */
 
-	struct vnode *vp = FileObject->FsContext;
+	struct vnode *vp = FileObject->FsContext, *xvp = NULL;
 	znode_t *zp = VTOZ(vp);
 	zfsvfs_t *zfsvfs = zp->z_zfsvfs;
 
@@ -2949,7 +2935,7 @@ NTSTATUS file_stream_information(PDEVICE_OBJECT DeviceObject, PIRP Irp, PIO_STAC
 
 	// Add a record for this name, if there is room. Keep a 
 	// count of how much space would need. insert_xattrname adds first ":" and ":$DATA"
-	overflow = zfswin_insert_xattrname("", outbuffer, &lastNextEntryOffset, availablebytes, &spaceused);
+	overflow = zfswin_insert_xattrname("", outbuffer, &lastNextEntryOffset, availablebytes, &spaceused, zp->z_size);
 
 	/* Grab the hidden attribute directory vnode. */
 	if (zfs_get_xattrdir(zp, &xdvp, cr, 0) != 0) {
@@ -2963,7 +2949,14 @@ NTSTATUS file_stream_information(PDEVICE_OBJECT DeviceObject, PIRP Irp, PIO_STAC
 		if (xattr_protected(za.za_name))
 			continue;	 /* skip */
 #endif
-		overflow += zfswin_insert_xattrname(za.za_name, outbuffer, &lastNextEntryOffset, availablebytes, &spaceused);
+		// We need to lookup the size of the xattr.
+		int error = zfs_dirlook(VTOZ(xdvp), za.za_name, &xvp, 0, NULL, NULL);
+
+		overflow += zfswin_insert_xattrname(za.za_name, outbuffer, &lastNextEntryOffset, availablebytes, &spaceused, 
+			xvp ? VTOZ(xvp)->z_size : 0);
+
+		if (error == 0) VN_RELE(xvp);
+
 	}
 
 	zap_cursor_fini(&zc);
